@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:intl/intl.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../domain/entities/saved_drawing.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../domain/entities/saved_drawing.dart';
 
 /// Maps between [File] system metadata and the [SavedDrawing] domain entity.
 class SavedDrawingModel {
