@@ -43,18 +43,13 @@ class CanvasController extends ValueNotifier<CanvasState> {
     canRedo: false,
   );
 
-  // Snapshot stack for undo; bounded by [CanvasConstants.maxHistorySteps].
   final List<ui.Image> _undoStack = [];
-
-  // Redo stack; cleared whenever a new stroke is committed.
   final List<ui.Image> _redoStack = [];
 
   late Size _rasterSize;
   late Size _displaySize;
 
   bool _initialised = false;
-
-  // Initialisation
 
   /// Must be called once before any drawing operations.
   ///
@@ -68,8 +63,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _rasterSize = rasterSize;
     _displaySize = displaySize;
 
-    final image = existingImage ??
-        await CanvasCompositor.createBlank(rasterSize);
+    final image =
+        existingImage ?? await CanvasCompositor.createBlank(rasterSize);
 
     _initialised = true;
     _notify(image, null);
@@ -79,8 +74,6 @@ class CanvasController extends ValueNotifier<CanvasState> {
   void updateDisplaySize(Size displaySize) {
     _displaySize = displaySize;
   }
-
-  //Pointer events
 
   void onPointerDown(
     Offset localPosition,
@@ -103,9 +96,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
     final stroke = Stroke(
       drawingTool: tool,
-      color: tool == DrawingTool.eraser
-          ? CanvasConstants.canvasColor
-          : color,
+      color: tool == DrawingTool.eraser ? CanvasConstants.canvasColor : color,
       size: size,
       points: [rasterPoint],
     );
@@ -133,7 +124,6 @@ class CanvasController extends ValueNotifier<CanvasState> {
       return;
     }
 
-    // For shapes only the start and current end point matter.
     final updated = Stroke(
       drawingTool: current.drawingTool,
       color: current.color,
@@ -150,7 +140,6 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _commitStroke(stroke);
   }
 
-  //Undo/redo 
   void undo() {
     if (_undoStack.isEmpty) return;
     _redoStack.add(value.committedImage);
@@ -165,12 +154,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(next, null);
   }
 
-  // Save
-
   Future<Uint8List> toPngBytes() =>
       CanvasCompositor.toPngBytes(value.committedImage);
-
-  //Private helpers
 
   Future<void> _commitStroke(Stroke stroke) async {
     _pushUndo(value.committedImage);
@@ -197,8 +182,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       final angle = random.nextDouble() * 2 * pi;
       final distance = random.nextDouble() * radius;
       return Offset(
-        (centre.dx + cos(angle) * distance)
-            .clamp(0.0, _rasterSize.width - 1),
+        (centre.dx + cos(angle) * distance).clamp(0.0, _rasterSize.width - 1),
         (centre.dy + sin(angle) * distance)
             .clamp(0.0, _rasterSize.height - 1),
       );
@@ -238,7 +222,6 @@ class CanvasController extends ValueNotifier<CanvasState> {
     );
   }
 
-  // Placeholder image used before initialise() is called — 1×1 transparent.
   static ui.Image _emptyImage() {
     final recorder = ui.PictureRecorder();
     ui.Canvas(recorder).drawRect(

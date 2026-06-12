@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'injection_container.dart';
+import 'presentation/editor/screens/editor_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,11 +18,7 @@ class DoodlingzApp extends StatelessWidget {
     // exists. Hardcoded to system default until then.
     return const MaterialApp(
       title: 'Doodlingz',
-      home: Scaffold(
-        body: Center(
-          child: Text('Doodlingz'),
-        ),
-      ),
+      home: EditorScreen(),
     );
   }
 }
