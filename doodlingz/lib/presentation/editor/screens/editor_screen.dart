@@ -1,14 +1,18 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/repositories/drawing_repository.dart';
 import '../../../injection_container.dart';
 import '../controller/canvas_controller.dart';
-import '../painter/drawing_canvas_painter.dart';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import '../../../domain/entities/drawing_tool.dart';
+import '../cubit/editor_cubit.dart';
+import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
+import '../painter/drawing_canvas_painter.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, this.existingImageBytes});
@@ -22,11 +26,7 @@ class EditorScreen extends StatefulWidget {
 
 class _EditorScreenState extends State<EditorScreen> {
   late final CanvasController _controller;
-
-  DrawingTool _tool = DrawingTool.brush;
-  // ignore: prefer_final_fields
-  Color _color = CanvasConstants.defaultToolColor;
-  double _size = CanvasConstants.brushSizes[1];
+  late final EditorCubit _editorCubit;
 
   bool _initRequested = false;
 
@@ -34,11 +34,13 @@ class _EditorScreenState extends State<EditorScreen> {
   void initState() {
     super.initState();
     _controller = CanvasController();
+    _editorCubit = EditorCubit();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _editorCubit.close();
     super.dispose();
   }
 
@@ -88,51 +90,55 @@ class _EditorScreenState extends State<EditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Doodlingz'),
-        actions: [
-          ValueListenableBuilder<CanvasState>(
-            valueListenable: _controller,
-            builder: (_, state, _) => IconButton(
-              icon: const Icon(Icons.undo),
-              onPressed: state.canUndo ? _controller.undo : null,
+    return BlocProvider.value(
+      value: _editorCubit,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Doodlingz'),
+          actions: [
+            ValueListenableBuilder<CanvasState>(
+              valueListenable: _controller,
+              builder: (_, state, _) => IconButton(
+                icon: const Icon(Icons.undo),
+                onPressed: state.canUndo ? _controller.undo : null,
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _save,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildToolRow(),
-          Expanded(child: _buildCanvas()),
-        ],
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _save,
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            _buildToolRow(),
+            Expanded(child: _buildCanvas()),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildToolRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        children: DrawingTool.values.map((tool) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              label: Text(tool.name),
-              selected: _tool == tool,
-              onSelected: (_) => setState(() {
-                _tool = tool;
-                _size = _toolSize(tool);
-              }),
-            ),
-          );
-        }).toList(),
-      ),
+    return BlocBuilder<EditorCubit, EditorState>(
+      builder: (context, editorState) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: DrawingTool.values.map((tool) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text(tool.name),
+                  selected: editorState.tool == tool,
+                  onSelected: (_) => _editorCubit.selectTool(tool),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -140,35 +146,28 @@ class _EditorScreenState extends State<EditorScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _ensureCanvasInitialised(constraints);
-        return GestureDetector(
-          onPanStart: (d) => _controller.onPointerDown(
-            d.localPosition,
-            _tool,
-            _color,
-            _size,
-          ),
-          onPanUpdate: (d) => _controller.onPointerMove(d.localPosition),
-          onPanEnd: (_) => _controller.onPointerUp(),
-          child: ValueListenableBuilder<CanvasState>(
-            valueListenable: _controller,
-            builder: (_, state, _) => CustomPaint(
-              painter: DrawingCanvasPainter(state: state),
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-            ),
-          ),
+        return BlocBuilder<EditorCubit, EditorState>(
+          builder: (context, editorState) {
+            return GestureDetector(
+              onPanStart: (d) => _controller.onPointerDown(
+                d.localPosition,
+                editorState.tool,
+                editorState.color,
+                editorState.strokeSize,
+              ),
+              onPanUpdate: (d) => _controller.onPointerMove(d.localPosition),
+              onPanEnd: (_) => _controller.onPointerUp(),
+              child: ValueListenableBuilder<CanvasState>(
+                valueListenable: _controller,
+                builder: (_, state, _) => CustomPaint(
+                  painter: DrawingCanvasPainter(state: state),
+                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                ),
+              ),
+            );
+          },
         );
       },
     );
-  }
-
-  double _toolSize(DrawingTool tool) {
-    switch (tool) {
-      case DrawingTool.spray:
-        return CanvasConstants.spraySizes[0];
-      case DrawingTool.eraser:
-        return CanvasConstants.brushSizes[2];
-      default:
-        return CanvasConstants.brushSizes[1];
-    }
   }
 }
