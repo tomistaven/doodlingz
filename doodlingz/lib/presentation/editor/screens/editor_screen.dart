@@ -148,12 +148,13 @@ class _EditorScreenState extends State<EditorScreen> {
                 );
               },
             ),
-            // The menu reserves vertical space for the full arc; offset so its
-            // internal handle (at the widget's vertical centre, left: 0) lands
-            // half-off the left edge at mid-canvas.
+            // Anchored flush to the left edge, vertically centered.
             Positioned(
-              left: -22,
-              top: constraints.maxHeight / 2 - (96 + 44),
+              left: 0,
+              // The widget's internal handle sits at (_arcRadius + _handleSize)
+              // from its top, so subtracting that centres the handle on the
+              // canvas. Handle size is 48.
+              top: (constraints.maxHeight / 2) - (104 + 48),
               child: const ColorPickerButton(),
             ),
           ],

@@ -22,9 +22,9 @@ class ColorPickerButton extends StatefulWidget {
 
 class _ColorPickerButtonState extends State<ColorPickerButton>
     with SingleTickerProviderStateMixin {
-  static const double _handleSize = 44;
+  static const double _handleSize = 48;
   static const double _nodeSize = 36;
-  static const double _arcRadius = 96;
+  static const double _arcRadius = 104;
 
   late final AnimationController _controller;
   bool _open = false;
@@ -64,33 +64,47 @@ class _ColorPickerButtonState extends State<ColorPickerButton>
     final cubit = context.read<EditorCubit>();
     _close();
 
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (_) => BlocProvider.value(
         value: cubit,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          child: BlocBuilder<EditorCubit, EditorState>(
-            builder: (context, state) {
-              return ColorPicker(
-                color: state.color,
-                onColorChanged: cubit.selectColor,
-                pickersEnabled: const {
-                  ColorPickerType.wheel: true,
-                  ColorPickerType.primary: false,
-                  ColorPickerType.accent: false,
-                },
-                enableOpacity: true,
-                enableShadesSelection: false,
-                showColorCode: true,
-                colorCodeHasColor: true,
-              );
-            },
+        child: Dialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: BlocBuilder<EditorCubit, EditorState>(
+              builder: (context, state) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ColorPicker(
+                      color: state.color,
+                      onColorChanged: cubit.selectColor,
+                      pickersEnabled: const {
+                        ColorPickerType.wheel: true,
+                        ColorPickerType.primary: false,
+                        ColorPickerType.accent: false,
+                      },
+                      enableOpacity: true,
+                      enableShadesSelection: false,
+                      showColorCode: true,
+                      colorCodeHasColor: true,
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Done'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -201,22 +215,38 @@ class _ColorPickerButtonState extends State<ColorPickerButton>
       top: centerY - _handleSize / 2,
       child: BlocBuilder<EditorCubit, EditorState>(
         builder: (context, state) {
+          // 0.65 gives a frosted glass look; 0.30 was too faint.
+          final opacity = _open ? 1.0 : 0.55;
           return GestureDetector(
             onTap: _toggle,
-            child: Container(
-              width: _handleSize,
-              height: _handleSize,
-              decoration: BoxDecoration(
-                color: state.color,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outline
-                      .withValues(alpha: 0.5),
-                  width: 2,
+            child: AnimatedOpacity(
+              opacity: opacity,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                width: _handleSize,
+                height: _handleSize,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF242424),
+                  shape: BoxShape.circle,
+                  // The ring is the current color — keeps the at-a-glance cue
+                  // while the icon signals this is a tool, not a paint blob.
+                  border: Border.all(color: state.color, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                boxShadow: _nodeShadow,
+                child: Center(
+                  child: Icon(
+                    Icons.palette,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 22,
+                  ),
+                ),
               ),
             ),
           );
