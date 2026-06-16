@@ -28,6 +28,8 @@ class _EditorScreenState extends State<EditorScreen> {
   Color _color = CanvasConstants.defaultToolColor;
   double _size = CanvasConstants.brushSizes[1];
 
+  bool _initRequested = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,19 +42,35 @@ class _EditorScreenState extends State<EditorScreen> {
     super.dispose();
   }
 
-  Future<void> _initialiseCanvas(BoxConstraints constraints) async {
-    if (_controller.value.committedImage.width > 1) return;
-
+  /// Feeds the live display size to the controller every layout pass, and
+  /// schedules the one-time async buffer creation exactly once.
+  ///
+  /// The schedule runs after the frame so the controller's notification never
+  /// fires mid-build, and the [_initRequested] guard closes the re-entry window
+  /// that earlier let a second layout pass start a concurrent initialise during
+  /// the first one's await.
+  void _ensureCanvasInitialised(BoxConstraints constraints) {
     final displaySize = Size(constraints.maxWidth, constraints.maxHeight);
-    final rasterSize = CanvasConstants.portraitCanvasSize;
+    _controller.updateDisplaySize(displaySize);
 
+    if (_initRequested) return;
+    _initRequested = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialiseCanvas(displaySize);
+    });
+  }
+
+  Future<void> _initialiseCanvas(Size displaySize) async {
     ui.Image? existing;
     if (widget.existingImageBytes != null) {
       existing = await CanvasCompositor.fromBytes(widget.existingImageBytes!);
     }
 
+    if (!mounted) return;
+
     await _controller.initialise(
-      rasterSize: rasterSize,
+      rasterSize: CanvasConstants.portraitCanvasSize,
       displaySize: displaySize,
       existingImage: existing,
     );
@@ -121,7 +139,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget _buildCanvas() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        _initialiseCanvas(constraints);
+        _ensureCanvasInitialised(constraints);
         return GestureDetector(
           onPanStart: (d) => _controller.onPointerDown(
             d.localPosition,
