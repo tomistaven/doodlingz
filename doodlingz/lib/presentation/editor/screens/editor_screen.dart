@@ -8,11 +8,11 @@ import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/repositories/drawing_repository.dart';
 import '../../../injection_container.dart';
 import '../controller/canvas_controller.dart';
-import '../../../domain/entities/drawing_tool.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
 import '../painter/drawing_canvas_painter.dart';
+import '../widgets/tool_panel.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, this.existingImageBytes});
@@ -111,34 +111,11 @@ class _EditorScreenState extends State<EditorScreen> {
         ),
         body: Column(
           children: [
-            _buildToolRow(),
+            const ToolPanel(),
             Expanded(child: _buildCanvas()),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildToolRow() {
-    return BlocBuilder<EditorCubit, EditorState>(
-      builder: (context, editorState) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: DrawingTool.values.map((tool) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  label: Text(tool.name),
-                  selected: editorState.tool == tool,
-                  onSelected: (_) => _editorCubit.selectTool(tool),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 
