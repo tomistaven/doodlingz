@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/canvas_constants.dart';
+import '../../../domain/entities/drawing_tool.dart';
 import 'flood_fill.dart';
 import 'stroke.dart';
 
@@ -104,6 +105,11 @@ class CanvasCompositor {
   static void _drawStroke(ui.Canvas canvas, Stroke stroke) {
     if (stroke.points.isEmpty) return;
 
+    if (stroke.drawingTool == DrawingTool.spray) {
+      _drawSpray(canvas, stroke);
+      return;
+    }
+
     final paint = Paint()
       ..color = stroke.color
       ..strokeWidth = stroke.size
@@ -121,6 +127,18 @@ class CanvasCompositor {
       path.lineTo(point.dx, point.dy);
     }
     canvas.drawPath(path, paint);
+  }
+
+  // Spray points are random dots — commit each as a filled circle, not a
+  // connected path.
+  static void _drawSpray(ui.Canvas canvas, Stroke stroke) {
+    final paint = Paint()
+      ..color = stroke.color
+      ..style = PaintingStyle.fill;
+
+    for (final point in stroke.points) {
+      canvas.drawCircle(point, 2.5, paint);
+    }
   }
 
   static void _drawShape(ui.Canvas canvas, Stroke stroke) {
