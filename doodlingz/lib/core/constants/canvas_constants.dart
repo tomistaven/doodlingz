@@ -38,4 +38,18 @@ abstract final class CanvasConstants {
   // anti-aliased edges don't leave an unfilled halo. Raise if halos appear,
   // lower if fills bleed past boundaries.
   static const int fillColorTolerance = 32;
+
+  // Quick-access palette shown in the radial swatch menu. Kept here rather than
+  // in the widget so the palette can be tuned without touching presentation
+  // code.
+  static const List<Color> presetColors = [
+    Color(0xFF000000),
+    Color(0xFFFFFFFF),
+    Color(0xFFE53935),
+    Color(0xFFFB8C00),
+    Color(0xFFFDD835),
+    Color(0xFF43A047),
+    Color(0xFF1E88E5),
+    Color(0xFF8E24AA),
+  ];
 }

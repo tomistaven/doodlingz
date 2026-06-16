@@ -148,10 +148,12 @@ class _EditorScreenState extends State<EditorScreen> {
                 );
               },
             ),
-            // Half-bleeds outside the left edge to feel embedded in the frame.
+            // The menu reserves vertical space for the full arc; offset so its
+            // internal handle (at the widget's vertical centre, left: 0) lands
+            // half-off the left edge at mid-canvas.
             Positioned(
               left: -22,
-              top: constraints.maxHeight / 2 - 22,
+              top: constraints.maxHeight / 2 - (96 + 44),
               child: const ColorPickerButton(),
             ),
           ],
