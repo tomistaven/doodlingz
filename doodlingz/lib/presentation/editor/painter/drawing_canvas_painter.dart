@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../domain/entities/drawing_tool.dart';
 import '../controller/canvas_controller.dart';
 import '../engine/stroke.dart';
 
@@ -56,6 +57,11 @@ class DrawingCanvasPainter extends CustomPainter {
   }
 
   void _paintFreehand(Canvas canvas, Stroke stroke) {
+    if (stroke.drawingTool == DrawingTool.spray) {
+      _paintSpray(canvas, stroke);
+      return;
+    }
+
     final paint = _buildPaint(stroke);
 
     if (stroke.points.length == 1) {
@@ -69,6 +75,18 @@ class DrawingCanvasPainter extends CustomPainter {
       path.lineTo(point.dx, point.dy);
     }
     canvas.drawPath(path, paint);
+  }
+
+  // Spray points are random dots scattered around the finger — drawing them
+  // as individual filled circles rather than a connected path.
+  void _paintSpray(Canvas canvas, Stroke stroke) {
+    final paint = Paint()
+      ..color = stroke.color
+      ..style = PaintingStyle.fill;
+
+    for (final point in stroke.points) {
+      canvas.drawCircle(point, 2.5, paint);
+    }
   }
 
   void _paintShape(Canvas canvas, Stroke stroke) {

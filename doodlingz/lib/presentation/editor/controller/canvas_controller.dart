@@ -190,7 +190,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notifyWithStroke(Stroke(
       drawingTool: current.drawingTool,
       color: current.color,
-      size: current.size / 4,
+      size: current.size,
       points: [...current.points, ...newPoints],
     ));
   }
