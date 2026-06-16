@@ -12,6 +12,7 @@ import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
 import '../painter/drawing_canvas_painter.dart';
+import '../widgets/color_picker_button.dart';
 import '../widgets/tool_panel.dart';
 
 class EditorScreen extends StatefulWidget {
@@ -123,26 +124,37 @@ class _EditorScreenState extends State<EditorScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _ensureCanvasInitialised(constraints);
-        return BlocBuilder<EditorCubit, EditorState>(
-          builder: (context, editorState) {
-            return GestureDetector(
-              onPanStart: (d) => _controller.onPointerDown(
-                d.localPosition,
-                editorState.tool,
-                editorState.color,
-                editorState.strokeSize,
-              ),
-              onPanUpdate: (d) => _controller.onPointerMove(d.localPosition),
-              onPanEnd: (_) => _controller.onPointerUp(),
-              child: ValueListenableBuilder<CanvasState>(
-                valueListenable: _controller,
-                builder: (_, state, _) => CustomPaint(
-                  painter: DrawingCanvasPainter(state: state),
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
-                ),
-              ),
-            );
-          },
+        return Stack(
+          children: [
+            BlocBuilder<EditorCubit, EditorState>(
+              builder: (context, editorState) {
+                return GestureDetector(
+                  onPanStart: (d) => _controller.onPointerDown(
+                    d.localPosition,
+                    editorState.tool,
+                    editorState.color,
+                    editorState.strokeSize,
+                  ),
+                  onPanUpdate: (d) =>
+                      _controller.onPointerMove(d.localPosition),
+                  onPanEnd: (_) => _controller.onPointerUp(),
+                  child: ValueListenableBuilder<CanvasState>(
+                    valueListenable: _controller,
+                    builder: (_, state, _) => CustomPaint(
+                      painter: DrawingCanvasPainter(state: state),
+                      size: Size(constraints.maxWidth, constraints.maxHeight),
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Half-bleeds outside the left edge to feel embedded in the frame.
+            Positioned(
+              left: -22,
+              top: constraints.maxHeight / 2 - 22,
+              child: const ColorPickerButton(),
+            ),
+          ],
         );
       },
     );

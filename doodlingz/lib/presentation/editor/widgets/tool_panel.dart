@@ -29,7 +29,8 @@ class ToolPanel extends StatelessWidget {
                       icon: _iconFor(tool),
                       tooltip: _labelFor(tool),
                       isSelected: isSelected,
-                      onTap: () => context.read<EditorCubit>().selectTool(tool),
+                      onTap: () =>
+                          context.read<EditorCubit>().selectTool(tool),
                     );
                   }).toList(),
                 ),
@@ -109,9 +110,8 @@ class _ToolButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = isSelected
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
+    final iconColor =
+        isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant;
 
     return Tooltip(
       message: tooltip,
