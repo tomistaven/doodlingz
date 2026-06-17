@@ -8,6 +8,7 @@ import '../../editor/screens/editor_screen.dart';
 import '../cubit/gallery_cubit.dart';
 import '../cubit/gallery_state.dart';
 import '../widgets/drawing_grid_tile.dart';
+import 'drawing_viewer_screen.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -30,21 +31,14 @@ class _GalleryScreenState extends State<GalleryScreen>
   }
 
   Future<void> _openDrawing(SavedDrawing drawing) async {
-    final cubit = sl<GalleryCubit>();
-    final bytes = await cubit.loadBytes(drawing.filePath);
-
-    if (!mounted) return;
-
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => EditorScreen(
-          existingImageBytes: bytes,
-          existingFilePath: drawing.filePath,
-        ),
+        builder: (_) => DrawingViewerScreen(drawing: drawing),
       ),
     );
 
-    cubit.load();
+    // The viewer can edit or delete; reload so the grid reflects any change.
+    sl<GalleryCubit>().load();
   }
 
   Future<void> _confirmDelete(SavedDrawing drawing) async {
@@ -112,14 +106,14 @@ class _GalleryScreenState extends State<GalleryScreen>
           builder: (context, state) {
             return switch (state) {
               GalleryLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              GalleryError(:final message) => Center(
-                child: Text(
-                  'Could not load drawings\n$message',
-                  textAlign: TextAlign.center,
+                  child: CircularProgressIndicator(),
                 ),
-              ),
+              GalleryError(:final message) => Center(
+                  child: Text(
+                    'Could not load drawings\n$message',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               GalleryLoaded(:final drawings) when drawings.isEmpty =>
                 const Center(
                   child: Column(
@@ -132,20 +126,21 @@ class _GalleryScreenState extends State<GalleryScreen>
                   ),
                 ),
               GalleryLoaded(:final drawings) => GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 3 / 4,
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 3 / 4,
+                  ),
+                  itemCount: drawings.length,
+                  itemBuilder: (_, index) => DrawingGridTile(
+                    drawing: drawings[index],
+                    onTap: () => _openDrawing(drawings[index]),
+                    onDelete: () => _confirmDelete(drawings[index]),
+                  ),
                 ),
-                itemCount: drawings.length,
-                itemBuilder: (_, index) => DrawingGridTile(
-                  drawing: drawings[index],
-                  onTap: () => _openDrawing(drawings[index]),
-                  onDelete: () => _confirmDelete(drawings[index]),
-                ),
-              ),
             };
           },
         ),
