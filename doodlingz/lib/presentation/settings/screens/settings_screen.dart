@@ -47,6 +47,32 @@ class SettingsScreen extends StatelessWidget {
                 onChanged: (value) =>
                     context.read<SettingsCubit>().setHubOnRight(value: value),
               ),
+              SwitchListTile(
+                secondary: const Icon(Icons.lightbulb_outline),
+                title: const Text('Show hints'),
+                subtitle: const Text('Tooltips and first-run tutorial'),
+                value: state.showHints,
+                onChanged: (value) =>
+                    context.read<SettingsCubit>().setShowHints(value: value),
+              ),
+              if (state.showHints)
+                ListTile(
+                  leading: const Icon(Icons.replay),
+                  title: const Text('Show tutorial again'),
+                  subtitle: const Text(
+                    'Replays the first-run guide next time you open the editor',
+                  ),
+                  onTap: () {
+                    context.read<SettingsCubit>().replayOnboarding();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Tutorial will show on your next visit to the editor',
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
           );
         },

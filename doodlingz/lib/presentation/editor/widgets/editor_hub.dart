@@ -33,6 +33,7 @@ class _EditorHubState extends State<EditorHub>
   late final AnimationController _controller;
   bool _open = false;
   _HubLevel _level = _HubLevel.root;
+  bool _showHints = true;
 
   @override
   void initState() {
@@ -187,6 +188,7 @@ class _EditorHubState extends State<EditorHub>
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settings) {
         final hubOnRight = settings.hubOnRight;
+        _showHints = settings.showHints;
 
         final handleBottom = _baseMargin + padding.bottom;
         final double handleEdge;
@@ -331,12 +333,17 @@ class _EditorHubState extends State<EditorHub>
     switch (_level) {
       case _HubLevel.root:
         return [
-          _categoryNode(icon: Icons.draw, onTap: () => _goTo(_HubLevel.tools)),
+          _categoryNode(
+            icon: Icons.draw,
+            onTap: () => _goTo(_HubLevel.tools),
+            tooltip: 'Tools',
+          ),
           _colorCategoryNode(state.color),
           if (sizes.isNotEmpty)
             _categoryNode(
               icon: Icons.line_weight,
               onTap: () => _goTo(_HubLevel.sizes),
+              tooltip: 'Size',
             ),
         ];
       case _HubLevel.tools:
@@ -357,13 +364,20 @@ class _EditorHubState extends State<EditorHub>
     }
   }
 
-  Widget _categoryNode({required IconData icon, required VoidCallback onTap}) {
+  Widget _categoryNode({
+    required IconData icon,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return _circle(
-      onTap: onTap,
-      color: const Color(0xFF242424),
-      borderColor: colorScheme.outline,
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 22),
+    return Tooltip(
+      message: _showHints ? tooltip : '',
+      child: _circle(
+        onTap: onTap,
+        color: const Color(0xFF242424),
+        borderColor: colorScheme.outline,
+        child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 22),
+      ),
     );
   }
 
@@ -371,25 +385,31 @@ class _EditorHubState extends State<EditorHub>
     final iconColor = current.computeLuminance() > 0.5
         ? Colors.black87
         : Colors.white;
-    return _circle(
-      onTap: () => _goTo(_HubLevel.colors),
-      color: current,
-      borderColor: Colors.white.withValues(alpha: 0.85),
-      child: Icon(Icons.palette, color: iconColor, size: 22),
+    return Tooltip(
+      message: _showHints ? 'Colour' : '',
+      child: _circle(
+        onTap: () => _goTo(_HubLevel.colors),
+        color: current,
+        borderColor: Colors.white.withValues(alpha: 0.85),
+        child: Icon(Icons.palette, color: iconColor, size: 22),
+      ),
     );
   }
 
   Widget _toolNode(DrawingTool tool, bool isSelected) {
     final colorScheme = Theme.of(context).colorScheme;
-    return _circle(
-      onTap: () => _selectTool(tool),
-      color: const Color(0xFF242424),
-      borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
-      borderWidth: isSelected ? 3 : 1.5,
-      child: Icon(
-        _iconFor(tool),
-        color: isSelected ? colorScheme.primary : Colors.white,
-        size: 22,
+    return Tooltip(
+      message: _showHints ? _labelFor(tool) : '',
+      child: _circle(
+        onTap: () => _selectTool(tool),
+        color: const Color(0xFF242424),
+        borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
+        borderWidth: isSelected ? 3 : 1.5,
+        child: Icon(
+          _iconFor(tool),
+          color: isSelected ? colorScheme.primary : Colors.white,
+          size: 22,
+        ),
       ),
     );
   }
@@ -475,36 +495,43 @@ class _EditorHubState extends State<EditorHub>
       left: hubOnRight ? null : edge,
       right: hubOnRight ? edge : null,
       bottom: bottom,
-      child: GestureDetector(
-        onTap: _onHandleTap,
-        child: Container(
-          width: _handleSize,
-          height: _handleSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: state.color, width: 4),
-            boxShadow: [
-              BoxShadow(
-                color: Color.fromRGBO(0, 0, 0, _open ? 0.35 : 0.15),
-                blurRadius: _open ? 10 : 4,
-                spreadRadius: _open ? 1 : 0,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: AnimatedOpacity(
-            opacity: _open ? 1.0 : 0.15,
-            duration: const Duration(milliseconds: 150),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF242424),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Icon(
-                  _handleIcon(state.tool),
-                  color: Colors.white.withValues(alpha: 0.9),
-                  size: 24,
+      child: Tooltip(
+        message: _showHints
+            ? (_open
+                ? (_level == _HubLevel.root ? 'Close' : 'Back')
+                : _labelFor(state.tool))
+            : '',
+        child: GestureDetector(
+          onTap: _onHandleTap,
+          child: Container(
+            width: _handleSize,
+            height: _handleSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: state.color, width: 4),
+              boxShadow: [
+                BoxShadow(
+                  color: Color.fromRGBO(0, 0, 0, _open ? 0.35 : 0.15),
+                  blurRadius: _open ? 10 : 4,
+                  spreadRadius: _open ? 1 : 0,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AnimatedOpacity(
+              opacity: _open ? 1.0 : 0.15,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF242424),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    _handleIcon(state.tool),
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -541,6 +568,29 @@ class _EditorHubState extends State<EditorHub>
         return Icons.circle_outlined;
       case DrawingTool.triangle:
         return Icons.change_history;
+    }
+  }
+
+  String _labelFor(DrawingTool tool) {
+    switch (tool) {
+      case DrawingTool.brush:
+        return 'Brush';
+      case DrawingTool.highlighter:
+        return 'Highlighter';
+      case DrawingTool.spray:
+        return 'Spray';
+      case DrawingTool.eraser:
+        return 'Eraser';
+      case DrawingTool.fill:
+        return 'Fill';
+      case DrawingTool.line:
+        return 'Line';
+      case DrawingTool.rectangle:
+        return 'Rectangle';
+      case DrawingTool.ellipse:
+        return 'Ellipse';
+      case DrawingTool.triangle:
+        return 'Triangle';
     }
   }
 
