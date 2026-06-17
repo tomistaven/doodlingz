@@ -1,0 +1,42 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'settings_state.dart';
+
+class SettingsCubit extends Cubit<SettingsState> {
+  SettingsCubit(this._prefs) : super(SettingsState.initial()) {
+    _loadAll();
+  }
+
+  final SharedPreferences _prefs;
+
+  static const _themeKey = 'theme_mode';
+  static const _hubOnRightKey = 'hub_on_right';
+
+  void _loadAll() {
+    final stored = _prefs.getString(_themeKey);
+    final mode = switch (stored) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+    final hubOnRight = _prefs.getBool(_hubOnRightKey) ?? false;
+    emit(state.copyWith(themeMode: mode, hubOnRight: hubOnRight));
+  }
+
+  void setTheme(ThemeMode mode) {
+    final value = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
+    _prefs.setString(_themeKey, value);
+    emit(state.copyWith(themeMode: mode));
+  }
+
+  void setHubOnRight({required bool value}) {
+    _prefs.setBool(_hubOnRightKey, value);
+    emit(state.copyWith(hubOnRight: value));
+  }
+}
