@@ -5,14 +5,13 @@ import 'package:intl/intl.dart';
 
 import '../../../domain/entities/saved_drawing.dart';
 import '../../../injection_container.dart';
-import '../../editor/screens/editor_screen.dart';
+import '../../editor/cubit/editor_cubit.dart';
 import '../cubit/gallery_cubit.dart';
 
 /// Read-only full-screen view of a single saved drawing.
 ///
-/// Opening a drawing lands here first rather than in the editor, so viewing
-/// is distinct from editing. Editing is an explicit action that pushes the
-/// editor on top with the drawing's bytes and path.
+/// Editing is an explicit action: it loads the drawing into the app-scoped
+/// EditorCubit and pops back to the shell, which switches to the editor tab.
 class DrawingViewerScreen extends StatefulWidget {
   const DrawingViewerScreen({super.key, required this.drawing});
 
@@ -33,22 +32,9 @@ class _DrawingViewerScreenState extends State<DrawingViewerScreen> {
     _bytesFuture = sl<GalleryCubit>().loadBytes(widget.drawing.filePath);
   }
 
-  Future<void> _edit(Uint8List bytes) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => EditorScreen(
-          existingImageBytes: bytes,
-          existingFilePath: widget.drawing.filePath,
-        ),
-      ),
-    );
-
-    // Returning from the editor may have changed the file; reload the thumbnail
-    // bytes so the viewer reflects an overwrite.
-    if (!mounted) return;
-    setState(() {
-      _bytesFuture = sl<GalleryCubit>().loadBytes(widget.drawing.filePath);
-    });
+  void _edit(Uint8List bytes) {
+    sl<EditorCubit>().requestLoad(bytes, widget.drawing.filePath);
+    Navigator.of(context).pop();
   }
 
   Future<void> _delete() async {
@@ -116,7 +102,7 @@ class _DrawingViewerScreenState extends State<DrawingViewerScreen> {
               ),
               Positioned(
                 right: 16,
-                bottom: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
                 child: FloatingActionButton.extended(
                   onPressed: () => _edit(bytes),
                   icon: const Icon(Icons.edit),

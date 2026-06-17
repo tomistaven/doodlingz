@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,18 +17,7 @@ import '../painter/drawing_canvas_painter.dart';
 import '../widgets/editor_hub.dart';
 
 class EditorScreen extends StatefulWidget {
-  const EditorScreen({
-    super.key,
-    this.existingImageBytes,
-    this.existingFilePath,
-  });
-
-  /// Non-null when opening a saved drawing or imported image for editing.
-  final Uint8List? existingImageBytes;
-
-  /// Non-null when the image was opened from the app gallery, enabling the
-  /// overwrite save option. Null for imported device images (save as new only).
-  final String? existingFilePath;
+  const EditorScreen({super.key});
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -36,31 +25,27 @@ class EditorScreen extends StatefulWidget {
 
 class _EditorScreenState extends State<EditorScreen> {
   late final CanvasController _controller;
-  late final EditorCubit _editorCubit;
 
   bool _initRequested = false;
+
+  /// Completes when [CanvasController.initialise] returns.
+  /// Load requests that arrive before init finishes await this before
+  /// calling [CanvasController.loadImage], preventing a race between the
+  /// cold-launch blank creation and an incoming image swap.
+  final Completer<void> _initCompleter = Completer<void>();
 
   @override
   void initState() {
     super.initState();
     _controller = CanvasController();
-    _editorCubit = EditorCubit();
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _editorCubit.close();
     super.dispose();
   }
 
-  /// Feeds the live display size to the controller every layout pass, and
-  /// schedules the one-time async buffer creation exactly once.
-  ///
-  /// The schedule runs after the frame so the controller's notification never
-  /// fires mid-build, and the [_initRequested] guard closes the re-entry window
-  /// that earlier let a second layout pass start a concurrent initialise during
-  /// the first one's await.
   void _ensureCanvasInitialised(BoxConstraints constraints) {
     final displaySize = Size(constraints.maxWidth, constraints.maxHeight);
     _controller.updateDisplaySize(displaySize);
@@ -74,42 +59,39 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _initialiseCanvas(Size displaySize) async {
-    ui.Image? existing;
-    if (widget.existingImageBytes != null) {
-      existing = await CanvasCompositor.fromBytes(
-        widget.existingImageBytes!,
-        CanvasConstants.portraitCanvasSize,
-      );
-    }
-
     if (!mounted) return;
-
     await _controller.initialise(
       rasterSize: CanvasConstants.portraitCanvasSize,
       displaySize: displaySize,
-      existingImage: existing,
     );
+    _initCompleter.complete();
   }
 
-  Future<void> _save() async {
-    final bytes = await _controller.toPngBytes();
-    await sl<DrawingRepository>().save(bytes);
-    _controller.markSaved();
+  Future<void> _handlePendingLoad(
+    Uint8List bytes,
+    String? filePath,
+  ) async {
+    await _initCompleter.future;
+    if (!mounted) return;
 
-    // Notify the gallery singleton so the grid refreshes immediately even
-    // though EditorScreen is kept alive in IndexedStack.
-    sl<GalleryCubit>().load();
+    final image = await CanvasCompositor.fromBytes(
+      bytes,
+      CanvasConstants.portraitCanvasSize,
+    );
+    if (!mounted) return;
 
+    _controller.loadImage(image);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
+      context.read<EditorCubit>().acknowledgeLoad(filePath);
     }
   }
 
-  Future<void> _saveWithChoice() async {
-    if (widget.existingFilePath == null) {
-      await _save();
+  Future<void> _save() async {
+    final cubit = context.read<EditorCubit>();
+    final currentFilePath = cubit.state.currentFilePath;
+
+    if (currentFilePath == null) {
+      await _saveNew(cubit);
       return;
     }
 
@@ -139,12 +121,27 @@ class _EditorScreenState extends State<EditorScreen> {
     final bytes = await _controller.toPngBytes();
 
     if (choice == _SaveChoice.overwrite) {
-      await sl<DrawingRepository>().overwrite(widget.existingFilePath!, bytes);
+      await sl<DrawingRepository>().overwrite(currentFilePath, bytes);
+      _controller.markSaved();
     } else {
-      await sl<DrawingRepository>().save(bytes);
+      await _saveNew(cubit, bytes: bytes);
+      return;
     }
-    _controller.markSaved();
 
+    sl<GalleryCubit>().load();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Drawing saved')),
+      );
+    }
+  }
+
+  Future<void> _saveNew(EditorCubit cubit, {Uint8List? bytes}) async {
+    final pngBytes = bytes ?? await _controller.toPngBytes();
+    final saved = await sl<DrawingRepository>().save(pngBytes);
+    _controller.markSaved();
+    cubit.notifySaved(saved.filePath);
     sl<GalleryCubit>().load();
 
     if (mounted) {
@@ -214,9 +211,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (choice == null || choice == _ExportChoice.cancel) return;
 
     if (choice == _ExportChoice.saveAndExport) {
-      await _saveWithChoice();
-      // _saveWithChoice can be cancelled at its own sheet; if so the drawing
-      // is still dirty and we abort rather than export an unsaved drawing.
+      await _save();
       if (_controller.value.isDirty) return;
     }
 
@@ -225,8 +220,6 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _exportBytes() async {
     final bytes = await _controller.toPngBytes();
-
-    // Album groups exported drawings together in the device gallery.
     const album = 'Doodlingz';
 
     try {
@@ -272,13 +265,21 @@ class _EditorScreenState extends State<EditorScreen> {
 
     if (confirmed ?? false) {
       await _controller.reset();
+      if (mounted) context.read<EditorCubit>().notifyNew();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _editorCubit,
+    return BlocListener<EditorCubit, EditorState>(
+      listenWhen: (previous, current) =>
+          current.pendingLoad != null && previous.pendingLoad == null,
+      listener: (context, state) {
+        _handlePendingLoad(
+          state.pendingLoad!.bytes,
+          state.pendingLoad!.filePath,
+        );
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Doodlingz'),
@@ -299,7 +300,7 @@ class _EditorScreenState extends State<EditorScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _saveWithChoice,
+              onPressed: _save,
             ),
             IconButton(
               icon: const Icon(Icons.ios_share),

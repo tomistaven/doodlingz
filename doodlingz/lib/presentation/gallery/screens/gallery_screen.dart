@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../domain/entities/saved_drawing.dart';
 import '../../../injection_container.dart';
-import '../../editor/screens/editor_screen.dart';
+import '../../editor/cubit/editor_cubit.dart';
 import '../cubit/gallery_cubit.dart';
 import '../cubit/gallery_state.dart';
 import '../widgets/drawing_grid_tile.dart';
@@ -76,13 +76,7 @@ class _GalleryScreenState extends State<GalleryScreen>
     final bytes = await picked.readAsBytes();
     if (!mounted) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => EditorScreen(existingImageBytes: bytes),
-      ),
-    );
-
-    sl<GalleryCubit>().load();
+    sl<EditorCubit>().requestLoad(bytes, null);
   }
 
   @override
