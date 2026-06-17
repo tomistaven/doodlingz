@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,13 +9,17 @@ import '../../settings/cubit/settings_cubit.dart';
 import '../../settings/cubit/settings_state.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
+import 'editor_hub_nodes.dart';
 
-enum _HubLevel { root, tools, colors, sizes }
+// Public so the HubNodes mixin can reference it across files.
+enum HubLevel { root, tools, colors, sizes }
 
 /// Floating radial control hub for the editor.
 ///
 /// Anchors to the bottom-left corner by default. When [SettingsState.hubOnRight]
 /// is true the entire hub mirrors to the bottom-right corner for left-handed use.
+///
+/// Node-building logic lives in [HubNodes].
 class EditorHub extends StatefulWidget {
   const EditorHub({super.key});
 
@@ -25,19 +28,26 @@ class EditorHub extends StatefulWidget {
 }
 
 class _EditorHubState extends State<EditorHub>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, HubNodes {
   static const double _handleSize = 64;
   static const double _nodeSize = 44;
   static const double _baseMargin = 24;
 
-  late final AnimationController _controller;
-  bool _open = false;
-  _HubLevel _level = _HubLevel.root;
+  late final AnimationController _animController;
+
+  bool _isOpen = false;
+  HubLevel _currentLevel = HubLevel.root;
+
+  @override
+  bool get hubOpen => _isOpen;
+
+  @override
+  HubLevel get hubLevel => _currentLevel;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
     );
@@ -45,48 +55,53 @@ class _EditorHubState extends State<EditorHub>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
   void _onHandleTap() {
-    if (!_open) {
+    if (!_isOpen) {
       setState(() {
-        _open = true;
-        _level = _HubLevel.root;
+        _isOpen = true;
+        _currentLevel = HubLevel.root;
       });
-      _controller.forward(from: 0);
-    } else if (_level != _HubLevel.root) {
-      setState(() => _level = _HubLevel.root);
-      _controller.forward(from: 0);
+      _animController.forward(from: 0);
+    } else if (_currentLevel != HubLevel.root) {
+      setState(() => _currentLevel = HubLevel.root);
+      _animController.forward(from: 0);
     } else {
-      _close();
+      closeHub();
     }
   }
 
-  void _close() {
-    setState(() => _open = false);
-    _controller.reverse();
+  @override
+  void closeHub() {
+    setState(() => _isOpen = false);
+    _animController.reverse();
   }
 
-  void _goTo(_HubLevel level) {
-    setState(() => _level = level);
-    _controller.forward(from: 0);
+  @override
+  void goTo(HubLevel level) {
+    setState(() => _currentLevel = level);
+    _animController.forward(from: 0);
   }
 
-  void _selectTool(DrawingTool tool) {
+  @override
+  void selectTool(DrawingTool tool) {
     context.read<EditorCubit>().selectTool(tool);
-    _close();
+    closeHub();
   }
 
-  void _selectColor(Color color) {
+  @override
+  void selectColor(Color color) {
     context.read<EditorCubit>().selectColor(color);
-    _close();
+    closeHub();
   }
 
-  void _selectSize(double size) {
+  @override
+  void selectSize(double size) {
     context.read<EditorCubit>().selectSize(size);
-    _close();
+    closeHub();
   }
 
   List<double> _sizesFor(DrawingTool tool) {
@@ -103,80 +118,6 @@ class _EditorHubState extends State<EditorHub>
       default:
         return CanvasConstants.brushSizes;
     }
-  }
-
-  void _openCustomPicker() {
-    final cubit = context.read<EditorCubit>();
-    _close();
-
-    showDialog<void>(
-      context: context,
-      builder: (_) => BlocProvider.value(
-        value: cubit,
-        child: Dialog(
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.surface.withValues(alpha: 0.00),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: BlocBuilder<EditorCubit, EditorState>(
-              builder: (context, state) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ColorPicker(
-                      color: state.color,
-                      onColorChanged: cubit.selectColor,
-                      pickersEnabled: const {
-                        ColorPickerType.wheel: true,
-                        ColorPickerType.primary: false,
-                        ColorPickerType.accent: false,
-                      },
-                      enableOpacity: true,
-                      enableShadesSelection: false,
-                      showColorCode: true,
-                      colorCodeHasColor: true,
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onPrimary,
-                          shape: const StadiumBorder(),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 12,
-                          ),
-                          elevation: 2,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'Done',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -205,16 +146,16 @@ class _EditorHubState extends State<EditorHub>
         return BlocBuilder<EditorCubit, EditorState>(
           builder: (context, state) {
             return AnimatedBuilder(
-              animation: _controller,
+              animation: _animController,
               builder: (context, _) {
-                final showArc = _open || _controller.value > 0;
+                final showArc = _isOpen || _animController.value > 0;
                 return Stack(
                   children: [
-                    if (_open)
+                    if (_isOpen)
                       Positioned.fill(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: _close,
+                          onTap: closeHub,
                           child: ColoredBox(
                             color: Colors.black.withValues(alpha: 0.08),
                           ),
@@ -251,8 +192,9 @@ class _EditorHubState extends State<EditorHub>
   }) {
     final nodes = _nodeContentsForLevel(state);
     final count = nodes.length;
-    final t = Curves.easeOutBack.transform(_controller.value.clamp(0.0, 1.0));
-    final opacity = _controller.value.clamp(0.0, 1.0);
+    final t =
+        Curves.easeOutBack.transform(_animController.value.clamp(0.0, 1.0));
+    final opacity = _animController.value.clamp(0.0, 1.0);
 
     return [
       for (var i = 0; i < count; i++)
@@ -321,166 +263,44 @@ class _EditorHubState extends State<EditorHub>
       bottom: cy + uy - _nodeSize / 2,
       child: Opacity(
         opacity: opacity,
-        child: IgnorePointer(ignoring: !_open, child: child),
+        child: IgnorePointer(ignoring: !_isOpen, child: child),
       ),
     );
   }
 
   List<Widget> _nodeContentsForLevel(EditorState state) {
     final sizes = _sizesFor(state.tool);
-    switch (_level) {
-      case _HubLevel.root:
+    switch (_currentLevel) {
+      case HubLevel.root:
         return [
-          _categoryNode(
+          buildCategoryNode(
             icon: Icons.draw,
-            onTap: () => _goTo(_HubLevel.tools),
+            onTap: () => goTo(HubLevel.tools),
             tooltip: 'Tools',
           ),
-          _colorCategoryNode(state.color),
+          buildColorCategoryNode(state.color),
           if (sizes.isNotEmpty)
-            _categoryNode(
+            buildCategoryNode(
               icon: Icons.line_weight,
-              onTap: () => _goTo(_HubLevel.sizes),
+              onTap: () => goTo(HubLevel.sizes),
               tooltip: 'Size',
             ),
         ];
-      case _HubLevel.tools:
+      case HubLevel.tools:
         return DrawingTool.values
-            .map((tool) => _toolNode(tool, state.tool == tool))
+            .map((tool) => buildToolNode(tool, state.tool == tool))
             .toList();
-      case _HubLevel.colors:
+      case HubLevel.colors:
         return [
-          ...CanvasConstants.presetColors.map(
-            (color) => _swatchNode(color, state.color == color),
-          ),
-          _customNode(),
+          ...CanvasConstants.presetColors
+              .map((color) => buildSwatchNode(color, state.color == color)),
+          buildCustomNode(),
         ];
-      case _HubLevel.sizes:
+      case HubLevel.sizes:
         return sizes
-            .map((size) => _sizeNode(size, sizes, state.strokeSize))
+            .map((size) => buildSizeNode(size, sizes, state.strokeSize))
             .toList();
     }
-  }
-
-  Widget _categoryNode({
-    required IconData icon,
-    required VoidCallback onTap,
-    required String tooltip,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: _circle(
-        onTap: onTap,
-        color: const Color(0xFF242424),
-        borderColor: colorScheme.outline,
-        child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 22),
-      ),
-    );
-  }
-
-  Widget _colorCategoryNode(Color current) {
-    final iconColor = current.computeLuminance() > 0.5
-        ? Colors.black87
-        : Colors.white;
-    return Tooltip(
-      message: 'Colour',
-      child: _circle(
-        onTap: () => _goTo(_HubLevel.colors),
-        color: current,
-        borderColor: Colors.white.withValues(alpha: 0.85),
-        child: Icon(Icons.palette, color: iconColor, size: 22),
-      ),
-    );
-  }
-
-  Widget _toolNode(DrawingTool tool, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: _labelFor(tool),
-      child: _circle(
-        onTap: () => _selectTool(tool),
-        color: const Color(0xFF242424),
-        borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
-        borderWidth: isSelected ? 3 : 1.5,
-        child: Icon(
-          _iconFor(tool),
-          color: isSelected ? colorScheme.primary : Colors.white,
-          size: 22,
-        ),
-      ),
-    );
-  }
-
-  Widget _swatchNode(Color color, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _circle(
-      onTap: () => _selectColor(color),
-      color: color,
-      borderColor: isSelected
-          ? colorScheme.primary
-          : colorScheme.outline.withValues(alpha: 0.5),
-      borderWidth: isSelected ? 3 : 1.5,
-    );
-  }
-
-  Widget _customNode() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _circle(
-      onTap: _openCustomPicker,
-      color: colorScheme.surface,
-      borderColor: colorScheme.outline,
-      child: Icon(
-        Icons.palette_outlined,
-        size: 20,
-        color: colorScheme.onSurface,
-      ),
-    );
-  }
-
-  Widget _sizeNode(double size, List<double> allSizes, double currentSize) {
-    final isSelected = size == currentSize;
-    final colorScheme = Theme.of(context).colorScheme;
-    final maxSize = allSizes.reduce((a, b) => a > b ? a : b);
-    final dotRadius = 4.0 + (size / maxSize) * 12.0;
-
-    return _circle(
-      onTap: () => _selectSize(size),
-      color: const Color(0xFF242424),
-      borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
-      borderWidth: isSelected ? 3 : 1.5,
-      child: Container(
-        width: dotRadius * 2,
-        height: dotRadius * 2,
-        decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primary : Colors.white,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-
-  Widget _circle({
-    required VoidCallback onTap,
-    required Color color,
-    required Color borderColor,
-    double borderWidth = 1.5,
-    Widget? child,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: _nodeSize,
-        height: _nodeSize,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: borderColor, width: borderWidth),
-          boxShadow: _shadow,
-        ),
-        child: child == null ? null : Center(child: child),
-      ),
-    );
   }
 
   Widget _buildHandle({
@@ -494,9 +314,9 @@ class _EditorHubState extends State<EditorHub>
       right: hubOnRight ? edge : null,
       bottom: bottom,
       child: Tooltip(
-        message: _open
-            ? (_level == _HubLevel.root ? 'Close' : 'Back')
-            : _labelFor(state.tool),
+        message: _isOpen
+            ? (_currentLevel == HubLevel.root ? 'Close' : 'Back')
+            : labelFor(state.tool),
         child: GestureDetector(
           onTap: _onHandleTap,
           child: Container(
@@ -507,15 +327,15 @@ class _EditorHubState extends State<EditorHub>
               border: Border.all(color: state.color, width: 4),
               boxShadow: [
                 BoxShadow(
-                  color: Color.fromRGBO(0, 0, 0, _open ? 0.35 : 0.15),
-                  blurRadius: _open ? 10 : 4,
-                  spreadRadius: _open ? 1 : 0,
+                  color: Color.fromRGBO(0, 0, 0, _isOpen ? 0.35 : 0.15),
+                  blurRadius: _isOpen ? 10 : 4,
+                  spreadRadius: _isOpen ? 1 : 0,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: AnimatedOpacity(
-              opacity: _open ? 1.0 : 0.15,
+              opacity: _isOpen ? 1.0 : 0.15,
               duration: const Duration(milliseconds: 150),
               child: Container(
                 decoration: const BoxDecoration(
@@ -524,7 +344,7 @@ class _EditorHubState extends State<EditorHub>
                 ),
                 child: Center(
                   child: Icon(
-                    _handleIcon(state.tool),
+                    handleIcon(state.tool),
                     color: Colors.white.withValues(alpha: 0.9),
                     size: 24,
                   ),
@@ -536,61 +356,4 @@ class _EditorHubState extends State<EditorHub>
       ),
     );
   }
-
-  IconData _handleIcon(DrawingTool tool) {
-    if (_open) {
-      return _level == _HubLevel.root ? Icons.close : Icons.arrow_back;
-    }
-    return _iconFor(tool);
-  }
-
-  IconData _iconFor(DrawingTool tool) {
-    switch (tool) {
-      case DrawingTool.brush:
-        return Icons.brush;
-      case DrawingTool.highlighter:
-        return Icons.edit;
-      case DrawingTool.spray:
-        return Icons.blur_on;
-      case DrawingTool.eraser:
-        return Icons.auto_fix_normal;
-      case DrawingTool.fill:
-        return Icons.format_color_fill;
-      case DrawingTool.line:
-        return Icons.remove;
-      case DrawingTool.rectangle:
-        return Icons.crop_square;
-      case DrawingTool.ellipse:
-        return Icons.circle_outlined;
-      case DrawingTool.triangle:
-        return Icons.change_history;
-    }
-  }
-
-  String _labelFor(DrawingTool tool) {
-    switch (tool) {
-      case DrawingTool.brush:
-        return 'Brush';
-      case DrawingTool.highlighter:
-        return 'Highlighter';
-      case DrawingTool.spray:
-        return 'Spray';
-      case DrawingTool.eraser:
-        return 'Eraser';
-      case DrawingTool.fill:
-        return 'Fill';
-      case DrawingTool.line:
-        return 'Line';
-      case DrawingTool.rectangle:
-        return 'Rectangle';
-      case DrawingTool.ellipse:
-        return 'Ellipse';
-      case DrawingTool.triangle:
-        return 'Triangle';
-    }
-  }
-
-  static const List<BoxShadow> _shadow = [
-    BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(2, 2)),
-  ];
 }
