@@ -37,7 +37,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: _isClosing ? 0.0 : 1.0),
-      duration: UiConstants.overlayAnimDuration,
+      duration: const Duration(milliseconds: 300),
       curve: _isClosing ? Curves.easeIn : Curves.easeOutBack,
       onEnd: () {
         if (_isClosing) widget.onDismiss();
@@ -46,18 +46,18 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
         return Opacity(
           opacity: value.clamp(0.0, 1.0),
           child: ColoredBox(
-            color: Colors.black.withValues(alpha: UiConstants.overlayScrimOpacity * value.clamp(0.0, 1.0)),
+            color: Colors.black.withValues(alpha: 0.55 * value.clamp(0.0, 1.0)),
             child: Center(
               child: Transform.scale(
                 scale: 0.8 + (0.2 * value),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: UiConstants.overlayHorizontalMargin),
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Material(
-                    color: UiConstants.hubSurface,
-                    borderRadius: BorderRadius.circular(UiConstants.overlayCardRadius),
+                    color: const Color(0xFF242424),
+                    borderRadius: BorderRadius.circular(16),
                     elevation: 8,
                     child: Padding(
-                      padding: UiConstants.overlayCardPadding,
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,27 +128,45 @@ class _PageOneContent extends StatelessWidget {
   }
 }
 
-class _PageTwoContent extends StatelessWidget {
+class _PageTwoContent extends StatefulWidget {
   const _PageTwoContent();
+
+  @override
+  State<_PageTwoContent> createState() => _PageTwoContentState();
+}
+
+class _PageTwoContentState extends State<_PageTwoContent> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const ValueKey('page2'),
       height: UiConstants.overlayToolListHeight,
-      child: ListView(
-        shrinkWrap: true,
-        children: const [
-          _HintRow(icon: Icons.brush, text: 'Brush: Freehand drawing'),
-          _HintRow(icon: Icons.edit, text: 'Highlighter: Semi-transparent freehand'),
-          _HintRow(icon: Icons.blur_on, text: 'Spray: Airbrush effect'),
-          _HintRow(icon: Icons.auto_fix_normal, text: 'Eraser: Restores canvas to white'),
-          _HintRow(icon: Icons.format_color_fill, text: 'Fill: Flood-fills a region'),
-          _HintRow(icon: Icons.remove, text: 'Line: Straight line'),
-          _HintRow(icon: Icons.crop_square, text: 'Rectangle: Drag to draw a rectangle'),
-          _HintRow(icon: Icons.circle_outlined, text: 'Ellipse: Drag to draw an ellipse'),
-          _HintRow(icon: Icons.change_history, text: 'Triangle: Drag to draw a triangle'),
-        ],
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: ListView(
+          controller: _scrollController,
+          shrinkWrap: true,
+          children: const [
+            _HintRow(icon: Icons.brush, text: 'Brush: Freehand drawing'),
+            _HintRow(icon: Icons.edit, text: 'Highlighter: Semi-transparent freehand'),
+            _HintRow(icon: Icons.blur_on, text: 'Spray: Airbrush effect'),
+            _HintRow(icon: Icons.auto_fix_normal, text: 'Eraser: Restores canvas to white'),
+            _HintRow(icon: Icons.format_color_fill, text: 'Fill: Flood-fills a region'),
+            _HintRow(icon: Icons.remove, text: 'Line: Straight line'),
+            _HintRow(icon: Icons.crop_square, text: 'Rectangle: Drag to draw a rectangle'),
+            _HintRow(icon: Icons.circle_outlined, text: 'Ellipse: Drag to draw an ellipse'),
+            _HintRow(icon: Icons.change_history, text: 'Triangle: Drag to draw a triangle'),
+          ],
+        ),
       ),
     );
   }
