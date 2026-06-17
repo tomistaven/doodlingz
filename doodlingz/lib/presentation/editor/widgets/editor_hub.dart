@@ -9,7 +9,7 @@ import '../../../domain/entities/drawing_tool.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 
-enum _HubLevel { root, tools, colors }
+enum _HubLevel { root, tools, colors, sizes }
 
 /// Bottom-left floating control hub for the editor.
 class EditorHub extends StatefulWidget {
@@ -79,6 +79,30 @@ class _EditorHubState extends State<EditorHub>
     _close();
   }
 
+  void _selectSize(double size) {
+    context.read<EditorCubit>().selectSize(size);
+    _close();
+  }
+
+  // Returns the relevant size options for the active tool. Fill has no stroke
+  // size so it returns an empty list — the size node is hidden at root when
+  // the list is empty.
+  List<double> _sizesFor(DrawingTool tool) {
+    switch (tool) {
+      case DrawingTool.spray:
+        return CanvasConstants.spraySizes;
+      case DrawingTool.line:
+      case DrawingTool.rectangle:
+      case DrawingTool.ellipse:
+      case DrawingTool.triangle:
+        return CanvasConstants.shapeOutlineWidths;
+      case DrawingTool.fill:
+        return [];
+      default:
+        return CanvasConstants.brushSizes;
+    }
+  }
+
   void _openCustomPicker() {
     final cubit = context.read<EditorCubit>();
     _close();
@@ -88,10 +112,8 @@ class _EditorHubState extends State<EditorHub>
       builder: (_) => BlocProvider.value(
         value: cubit,
         child: Dialog(
-          // opacity to match your handle
           backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
-          // Remove the shadow so the transparency is perfectly clean
-          elevation: 0, 
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -122,12 +144,12 @@ class _EditorHubState extends State<EditorHub>
                         style: FilledButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                          shape: const StadiumBorder(), 
+                          shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 28, 
+                            horizontal: 28,
                             vertical: 12,
                           ),
-                          elevation: 2, 
+                          elevation: 2,
                         ),
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text(
@@ -151,12 +173,9 @@ class _EditorHubState extends State<EditorHub>
 
   @override
   Widget build(BuildContext context) {
-    // Dynamically pad both bottom AND left so it never covers the system nav bar,
-    // regardless of whether the phone is in portrait or landscape orientation.
     final padding = MediaQuery.paddingOf(context);
     final handleBottom = _baseMargin + padding.bottom;
     final handleLeft = _baseMargin + padding.left;
-
     final handleCentreX = handleLeft + _handleSize / 2;
     final handleCentreY = handleBottom + _handleSize / 2;
 
@@ -230,19 +249,15 @@ class _EditorHubState extends State<EditorHub>
     required double cy,
     required Widget child,
   }) {
-    // If more than 5 items, use two rows.
     final bool useTwoRows = count > 5;
     final int innerCount = useTwoRows ? (count / 2).floor() : count;
     final bool isOuter = index >= innerCount;
-
     final int rowCount = isOuter ? (count - innerCount) : innerCount;
     final int rowIndex = isOuter ? index - innerCount : index;
 
-    // Outer ring sits further out to give breathing room
     final double targetRadius = useTwoRows ? (isOuter ? 190.0 : 105.0) : 115.0;
     final double distance = targetRadius * t;
 
-    // Define the safe fanning area (5 degrees to 85 degrees)
     const double minAngle = math.pi / 36;
     const double maxAngle = 17 * math.pi / 36;
     const double availableSweep = maxAngle - minAngle;
@@ -251,15 +266,15 @@ class _EditorHubState extends State<EditorHub>
     double startAngle;
 
     if (count == 2) {
-      // FIX: Custom spread for the 2-item Root menu.
-      // Places them at 15 degrees and 75 degrees so they anchor the quadrant.
-      actualStep = math.pi / 3; // 60 degrees apart
-      startAngle = math.pi / 12; // Start at 15 degrees
+      actualStep = math.pi / 3;
+      startAngle = math.pi / 12;
+    } else if (count == 3 && !useTwoRows) {
+      actualStep = availableSweep / (rowCount - 1);
+      startAngle = minAngle;
     } else if (rowCount == 1) {
       actualStep = 0;
-      startAngle = math.pi / 4; // Dead center
+      startAngle = math.pi / 4;
     } else {
-      // Fan out evenly across the available sweep
       actualStep = availableSweep / (rowCount - 1);
       startAngle = minAngle;
     }
@@ -279,6 +294,7 @@ class _EditorHubState extends State<EditorHub>
   }
 
   List<Widget> _nodeContentsForLevel(EditorState state) {
+    final sizes = _sizesFor(state.tool);
     switch (_level) {
       case _HubLevel.root:
         return [
@@ -287,6 +303,11 @@ class _EditorHubState extends State<EditorHub>
             onTap: () => _goTo(_HubLevel.tools),
           ),
           _colorCategoryNode(state.color),
+          if (sizes.isNotEmpty)
+            _categoryNode(
+              icon: Icons.line_weight,
+              onTap: () => _goTo(_HubLevel.sizes),
+            ),
         ];
       case _HubLevel.tools:
         return DrawingTool.values
@@ -299,6 +320,10 @@ class _EditorHubState extends State<EditorHub>
           ),
           _customNode(),
         ];
+      case _HubLevel.sizes:
+        return sizes
+            .map((size) => _sizeNode(size, sizes, state.strokeSize))
+            .toList();
     }
   }
 
@@ -315,7 +340,6 @@ class _EditorHubState extends State<EditorHub>
   Widget _colorCategoryNode(Color current) {
     final iconColor =
         current.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
-
     return _circle(
       onTap: () => _goTo(_HubLevel.colors),
       color: current,
@@ -357,10 +381,28 @@ class _EditorHubState extends State<EditorHub>
       onTap: _openCustomPicker,
       color: colorScheme.surface,
       borderColor: colorScheme.outline,
-      child: Icon(
-        Icons.palette_outlined,
-        size: 20,
-        color: colorScheme.onSurface,
+      child: Icon(Icons.palette_outlined, size: 20, color: colorScheme.onSurface),
+    );
+  }
+
+  Widget _sizeNode(double size, List<double> allSizes, double currentSize) {
+    final isSelected = size == currentSize;
+    final colorScheme = Theme.of(context).colorScheme;
+    final maxSize = allSizes.reduce((a, b) => a > b ? a : b);
+    final dotRadius = 4.0 + (size / maxSize) * 12.0;
+
+    return _circle(
+      onTap: () => _selectSize(size),
+      color: const Color(0xFF242424),
+      borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
+      borderWidth: isSelected ? 3 : 1.5,
+      child: Container(
+        width: dotRadius * 2,
+        height: dotRadius * 2,
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : Colors.white,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
