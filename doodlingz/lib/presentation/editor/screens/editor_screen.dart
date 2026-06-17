@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -165,6 +166,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (choice == _SaveChoice.overwrite) {
       await sl<DrawingRepository>().overwrite(currentFilePath, bytes);
       _controller.markSaved();
+      await FileImage(File(currentFilePath)).evict();
     } else {
       await _saveNew(cubit, bytes: bytes);
       return;

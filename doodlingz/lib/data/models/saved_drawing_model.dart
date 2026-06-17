@@ -15,6 +15,7 @@ class SavedDrawingModel {
   ///
   /// The creation timestamp is parsed from the filename rather than relying
   /// on filesystem mtime, which can change on copy or backup restore.
+  /// [updatedAt] always reflects the current mtime so overwrites are detected.
   static SavedDrawing fromFile(File file) {
     final name = file.uri.pathSegments.last;
     final id = name.replaceAll('.${AppConstants.fileExtension}', '');
@@ -24,10 +25,14 @@ class SavedDrawingModel {
     try {
       createdAt = _timestampFormat.parse(timestampStr);
     } catch (_) {
-      // Fall back to file mtime if the filename format is unexpected.
       createdAt = file.lastModifiedSync();
     }
 
-    return SavedDrawing(id: id, filePath: file.path, createdAt: createdAt);
+    return SavedDrawing(
+      id: id,
+      filePath: file.path,
+      createdAt: createdAt,
+      updatedAt: file.lastModifiedSync(),
+    );
   }
 }

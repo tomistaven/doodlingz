@@ -31,8 +31,11 @@ class DrawingGridTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.file(
-              File(drawing.filePath),
+            Image(
+              // Key on updatedAt so a widget rebuild after overwrite creates a
+              // new Image widget, preventing Flutter reusing the stale one.
+              key: ValueKey('${drawing.filePath}_${drawing.updatedAt.millisecondsSinceEpoch}'),
+              image: FileImage(File(drawing.filePath)),
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => ColoredBox(
                 color: colorScheme.surfaceContainerHighest,
