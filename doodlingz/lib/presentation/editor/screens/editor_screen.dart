@@ -71,6 +71,49 @@ class _EditorScreenState extends State<EditorScreen> {
     Uint8List bytes,
     String? filePath,
   ) async {
+    final cubit = context.read<EditorCubit>();
+
+    if (_controller.value.isDirty) {
+      final choice = await showDialog<_LoadChoice>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unsaved changes'),
+          content: const Text(
+            'You have unsaved changes. Save before opening this drawing?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(_LoadChoice.cancel),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(_LoadChoice.discard),
+              child: const Text('Discard'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(_LoadChoice.save),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == null || choice == _LoadChoice.cancel) {
+        cubit.cancelLoad();
+        return;
+      }
+
+      if (choice == _LoadChoice.save) {
+        await _save();
+        // _save can itself be cancelled at the bottom sheet; if the canvas
+        // is still dirty the user backed out, so abort the load too.
+        if (!mounted || _controller.value.isDirty) {
+          cubit.cancelLoad();
+          return;
+        }
+      }
+    }
+
     await _initCompleter.future;
     if (!mounted) return;
 
@@ -81,10 +124,9 @@ class _EditorScreenState extends State<EditorScreen> {
     if (!mounted) return;
 
     _controller.loadImage(image);
-    if (mounted) {
-      context.read<EditorCubit>().acknowledgeLoad(filePath);
-    }
+    if (mounted) cubit.acknowledgeLoad(filePath);
   }
+
 
   Future<void> _save() async {
     final cubit = context.read<EditorCubit>();
@@ -380,3 +422,5 @@ enum _SaveChoice { saveNew, overwrite }
 enum _ExportChoice { cancel, exportOnly, saveAndExport }
 
 enum _EditorMenu { newDrawing, clear }
+
+enum _LoadChoice { cancel, discard, save }

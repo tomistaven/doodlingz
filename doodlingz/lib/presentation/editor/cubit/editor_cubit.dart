@@ -52,6 +52,12 @@ class EditorCubit extends Cubit<EditorState> {
     emit(state.copyWith(currentFilePath: filePath));
   }
 
+  /// Cancels a pending load without touching [currentFilePath].
+  /// Called when the user dismisses the dirty-canvas confirm dialog.
+  void cancelLoad() {
+    emit(state.copyWith(clearPendingLoad: true));
+  }
+
   // Each tool family has a sensible default so switching tools immediately
   // produces an unsurprising mark without the user touching the size selector.
   static double _defaultSize(DrawingTool tool) {
