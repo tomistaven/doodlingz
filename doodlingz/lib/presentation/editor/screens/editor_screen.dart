@@ -12,8 +12,7 @@ import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
 import '../painter/drawing_canvas_painter.dart';
-import '../widgets/color_picker_button.dart';
-import '../widgets/tool_panel.dart';
+import '../widgets/editor_hub.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, this.existingImageBytes});
@@ -110,12 +109,7 @@ class _EditorScreenState extends State<EditorScreen> {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            const ToolPanel(),
-            Expanded(child: _buildCanvas()),
-          ],
-        ),
+        body: _buildCanvas(),
       ),
     );
   }
@@ -148,15 +142,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 );
               },
             ),
-            // Anchored flush to the left edge, vertically centered.
-            Positioned(
-              left: 0,
-              // The widget's internal handle sits at (_arcRadius + _handleSize)
-              // from its top, so subtracting that centres the handle on the
-              // canvas. Handle size is 48.
-              top: (constraints.maxHeight / 2) - (104 + 48),
-              child: const ColorPickerButton(),
-            ),
+            const Positioned.fill(child: EditorHub()),
           ],
         );
       },
