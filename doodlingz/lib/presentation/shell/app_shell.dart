@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../injection_container.dart';
 import '../editor/screens/editor_screen.dart';
+import '../gallery/screens/gallery_screen.dart';
 import '../settings/cubit/settings_cubit.dart';
 import '../settings/screens/settings_screen.dart';
 
@@ -43,7 +44,7 @@ class _AppShellState extends State<AppShell> {
           index: _currentIndex,
           children: const [
             EditorScreen(),
-            _GalleryPlaceholder(),
+            GalleryScreen(),
             SettingsScreen(),
           ],
         ),
@@ -54,18 +55,6 @@ class _AppShellState extends State<AppShell> {
           destinations: _destinations,
         ),
       ),
-    );
-  }
-}
-
-class _GalleryPlaceholder extends StatelessWidget {
-  const _GalleryPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gallery')),
-      body: const Center(child: Text('Gallery coming soon')),
     );
   }
 }

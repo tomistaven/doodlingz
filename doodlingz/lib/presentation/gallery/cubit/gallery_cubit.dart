@@ -1,6 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../domain/repositories/drawing_repository.dart';
+import '../../../domain/repositories/drawing_repository.dart';
 import 'gallery_state.dart';
 
 class GalleryCubit extends Cubit<GalleryState> {
@@ -26,4 +28,7 @@ class GalleryCubit extends Cubit<GalleryState> {
       emit(GalleryError(e.toString()));
     }
   }
+
+  Future<Uint8List> loadBytes(String filePath) =>
+      _repository.loadBytes(filePath);
 }
