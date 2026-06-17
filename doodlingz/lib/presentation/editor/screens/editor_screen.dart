@@ -10,12 +10,15 @@ import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/repositories/drawing_repository.dart';
 import '../../../injection_container.dart';
 import '../../gallery/cubit/gallery_cubit.dart';
+import '../../settings/cubit/settings_cubit.dart';
+import '../../settings/cubit/settings_state.dart';
 import '../controller/canvas_controller.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
 import '../painter/drawing_canvas_painter.dart';
 import '../widgets/editor_hub.dart';
+import '../widgets/onboarding_overlay.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
@@ -445,6 +448,14 @@ class _EditorScreenState extends State<EditorScreen> {
               },
             ),
             const Positioned.fill(child: EditorHub()),
+            BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, settings) {
+                if (!settings.showHints || settings.onboardingSeen) {
+                  return const SizedBox.shrink();
+                }
+                return const Positioned.fill(child: OnboardingOverlay());
+              },
+            ),
           ],
         );
       },
