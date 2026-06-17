@@ -88,7 +88,10 @@ class _EditorHubState extends State<EditorHub>
       builder: (_) => BlocProvider.value(
         value: cubit,
         child: Dialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          // opacity to match your handle
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
+          // Remove the shadow so the transparency is perfectly clean
+          elevation: 0, 
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -115,9 +118,25 @@ class _EditorHubState extends State<EditorHub>
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: TextButton(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          shape: const StadiumBorder(), 
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28, 
+                            vertical: 12,
+                          ),
+                          elevation: 2, 
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Done'),
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -374,36 +393,40 @@ class _EditorHubState extends State<EditorHub>
     required double left,
     required double bottom,
   }) {
-    final opacity = _open ? 1.0 : 0.65;
     return Positioned(
       left: left,
       bottom: bottom,
-      child: AnimatedOpacity(
-        opacity: opacity,
-        duration: const Duration(milliseconds: 150),
-        child: GestureDetector(
-          onTap: _onHandleTap,
-          child: Container(
-            width: _handleSize,
-            height: _handleSize,
-            decoration: BoxDecoration(
-              color: const Color(0xFF242424),
-              shape: BoxShape.circle,
-              border: Border.all(color: state.color, width: 4),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x4D000000),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                  offset: Offset(0, 4),
+      child: GestureDetector(
+        onTap: _onHandleTap,
+        child: Container(
+          width: _handleSize,
+          height: _handleSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: state.color, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, _open ? 0.35 : 0.15),
+                blurRadius: _open ? 10 : 4,
+                spreadRadius: _open ? 1 : 0,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AnimatedOpacity(
+            opacity: _open ? 1.0 : 0.15,
+            duration: const Duration(milliseconds: 150),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF242424),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Icon(
+                  _handleIcon(state.tool),
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 24,
                 ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                _handleIcon(state.tool),
-                color: Colors.white.withValues(alpha: 0.9),
-                size: 24,
               ),
             ),
           ),
