@@ -33,7 +33,6 @@ class _EditorHubState extends State<EditorHub>
   late final AnimationController _controller;
   bool _open = false;
   _HubLevel _level = _HubLevel.root;
-  bool _showHints = true;
 
   @override
   void initState() {
@@ -188,7 +187,6 @@ class _EditorHubState extends State<EditorHub>
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settings) {
         final hubOnRight = settings.hubOnRight;
-        _showHints = settings.showHints;
 
         final handleBottom = _baseMargin + padding.bottom;
         final double handleEdge;
@@ -371,7 +369,7 @@ class _EditorHubState extends State<EditorHub>
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: _showHints ? tooltip : '',
+      message: tooltip,
       child: _circle(
         onTap: onTap,
         color: const Color(0xFF242424),
@@ -386,7 +384,7 @@ class _EditorHubState extends State<EditorHub>
         ? Colors.black87
         : Colors.white;
     return Tooltip(
-      message: _showHints ? 'Colour' : '',
+      message: 'Colour',
       child: _circle(
         onTap: () => _goTo(_HubLevel.colors),
         color: current,
@@ -399,7 +397,7 @@ class _EditorHubState extends State<EditorHub>
   Widget _toolNode(DrawingTool tool, bool isSelected) {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: _showHints ? _labelFor(tool) : '',
+      message: _labelFor(tool),
       child: _circle(
         onTap: () => _selectTool(tool),
         color: const Color(0xFF242424),
@@ -496,11 +494,9 @@ class _EditorHubState extends State<EditorHub>
       right: hubOnRight ? edge : null,
       bottom: bottom,
       child: Tooltip(
-        message: _showHints
-            ? (_open
-                ? (_level == _HubLevel.root ? 'Close' : 'Back')
-                : _labelFor(state.tool))
-            : '',
+        message: _open
+            ? (_level == _HubLevel.root ? 'Close' : 'Back')
+            : _labelFor(state.tool),
         child: GestureDetector(
           onTap: _onHandleTap,
           child: Container(

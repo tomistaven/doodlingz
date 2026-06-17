@@ -13,8 +13,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   static const _themeKey = 'theme_mode';
   static const _hubOnRightKey = 'hub_on_right';
-  static const _showHintsKey = 'show_hints';
-  static const _onboardingSeenKey = 'onboarding_seen';
+  static const _showTutorialKey = 'show_tutorial_on_startup';
 
   void _loadAll() {
     final stored = _prefs.getString(_themeKey);
@@ -27,8 +26,8 @@ class SettingsCubit extends Cubit<SettingsState> {
       state.copyWith(
         themeMode: mode,
         hubOnRight: _prefs.getBool(_hubOnRightKey) ?? false,
-        showHints: _prefs.getBool(_showHintsKey) ?? true,
-        onboardingSeen: _prefs.getBool(_onboardingSeenKey) ?? false,
+        showTutorialOnStartup: _prefs.getBool(_showTutorialKey) ?? true,
+        pendingTutorial: false,
       ),
     );
   }
@@ -48,20 +47,18 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(hubOnRight: value));
   }
 
-  void setShowHints({required bool value}) {
-    _prefs.setBool(_showHintsKey, value);
-    emit(state.copyWith(showHints: value));
+  void setShowTutorialOnStartup({required bool value}) {
+    _prefs.setBool(_showTutorialKey, value);
+    emit(state.copyWith(showTutorialOnStartup: value));
   }
 
-  void markOnboardingSeen() {
-    _prefs.setBool(_onboardingSeenKey, true);
-    emit(state.copyWith(onboardingSeen: true));
+  /// Fires a signal that AppShell picks up to switch tabs and show the overlay.
+  void triggerTutorial() {
+    emit(state.copyWith(pendingTutorial: true));
   }
 
-  /// Resets the onboarding flag so the overlay shows again on the next editor
-  /// visit. Useful for reviewers and users who want to revisit the tutorial.
-  void replayOnboarding() {
-    _prefs.setBool(_onboardingSeenKey, false);
-    emit(state.copyWith(onboardingSeen: false));
+  /// Clears the signal after AppShell has processed it.
+  void clearPendingTutorial() {
+    emit(state.copyWith(pendingTutorial: false));
   }
 }

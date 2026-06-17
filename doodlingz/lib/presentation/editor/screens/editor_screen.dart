@@ -31,6 +31,7 @@ class _EditorScreenState extends State<EditorScreen> {
   late final CanvasController _controller;
 
   bool _initRequested = false;
+  bool _tutorialDismissedThisSession = false;
 
   /// Completes when [CanvasController.initialise] returns.
   /// Load requests that arrive before init finishes await this before
@@ -360,61 +361,69 @@ class _EditorScreenState extends State<EditorScreen> {
           state.pendingLoad!.filePath,
         );
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Doodlingz'),
-          actions: [
-            ValueListenableBuilder<CanvasState>(
-              valueListenable: _controller,
-              builder: (_, state, _) => IconButton(
-                icon: const Icon(Icons.undo),
-                onPressed: state.canUndo ? _controller.undo : null,
-              ),
-            ),
-            ValueListenableBuilder<CanvasState>(
-              valueListenable: _controller,
-              builder: (_, state, _) => IconButton(
-                icon: const Icon(Icons.redo),
-                onPressed: state.canRedo ? _controller.redo : null,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _save,
-            ),
-            IconButton(
-              icon: const Icon(Icons.ios_share),
-              onPressed: _export,
-            ),
-            PopupMenuButton<_EditorMenu>(
-              onSelected: (item) {
-                switch (item) {
-                  case _EditorMenu.newDrawing:
-                    _newDrawing();
-                  case _EditorMenu.clear:
-                    _clear();
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: _EditorMenu.newDrawing,
-                  child: ListTile(
-                    leading: Icon(Icons.note_add_outlined),
-                    title: Text('New drawing'),
-                  ),
+      child: BlocListener<SettingsCubit, SettingsState>(
+        listenWhen: (previous, current) =>
+            current.pendingTutorial && !previous.pendingTutorial,
+        listener: (context, state) {
+          // If triggered manually from settings, reset the session flag
+          setState(() => _tutorialDismissedThisSession = false);
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Doodlingz'),
+            actions: [
+              ValueListenableBuilder<CanvasState>(
+                valueListenable: _controller,
+                builder: (_, state, _) => IconButton(
+                  icon: const Icon(Icons.undo),
+                  onPressed: state.canUndo ? _controller.undo : null,
                 ),
-                PopupMenuItem(
-                  value: _EditorMenu.clear,
-                  child: ListTile(
-                    leading: Icon(Icons.delete_outline),
-                    title: Text('Clear canvas'),
-                  ),
+              ),
+              ValueListenableBuilder<CanvasState>(
+                valueListenable: _controller,
+                builder: (_, state, _) => IconButton(
+                  icon: const Icon(Icons.redo),
+                  onPressed: state.canRedo ? _controller.redo : null,
                 ),
-              ],
-            ),
-          ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _save,
+              ),
+              IconButton(
+                icon: const Icon(Icons.ios_share),
+                onPressed: _export,
+              ),
+              PopupMenuButton<_EditorMenu>(
+                onSelected: (item) {
+                  switch (item) {
+                    case _EditorMenu.newDrawing:
+                      _newDrawing();
+                    case _EditorMenu.clear:
+                      _clear();
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: _EditorMenu.newDrawing,
+                    child: ListTile(
+                      leading: Icon(Icons.note_add_outlined),
+                      title: Text('New drawing'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _EditorMenu.clear,
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Clear canvas'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          body: _buildCanvas(),
         ),
-        body: _buildCanvas(),
       ),
     );
   }
@@ -450,10 +459,21 @@ class _EditorScreenState extends State<EditorScreen> {
             const Positioned.fill(child: EditorHub()),
             BlocBuilder<SettingsCubit, SettingsState>(
               builder: (context, settings) {
-                if (!settings.showHints || settings.onboardingSeen) {
+                if (_tutorialDismissedThisSession || 
+                    (!settings.showTutorialOnStartup && !settings.pendingTutorial)) {
                   return const SizedBox.shrink();
                 }
-                return const Positioned.fill(child: OnboardingOverlay());
+                
+                return Positioned.fill(
+                  child: OnboardingOverlay(
+                    onDismiss: () {
+                      setState(() => _tutorialDismissedThisSession = true);
+                      if (settings.pendingTutorial) {
+                        context.read<SettingsCubit>().clearPendingTutorial();
+                      }
+                    },
+                  ),
+                );
               },
             ),
           ],

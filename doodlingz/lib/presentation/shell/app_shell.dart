@@ -7,6 +7,7 @@ import '../editor/cubit/editor_state.dart';
 import '../editor/screens/editor_screen.dart';
 import '../gallery/screens/gallery_screen.dart';
 import '../settings/cubit/settings_cubit.dart';
+import '../settings/cubit/settings_state.dart';
 import '../settings/screens/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -44,28 +45,35 @@ class _AppShellState extends State<AppShell> {
       child: BlocProvider.value(
         value: sl<EditorCubit>(),
         child: BlocListener<EditorCubit, EditorState>(
-          // Switch to the editor tab whenever a load is requested from outside
-          // the editor (gallery viewer, device import). The EditorScreen
-          // BlocListener then picks up pendingLoad and applies it to the canvas.
           listenWhen: (previous, current) =>
               current.pendingLoad != null && previous.pendingLoad == null,
           listener: (context, state) {
             setState(() => _currentIndex = 0);
           },
-          child: Scaffold(
-            body: IndexedStack(
-              index: _currentIndex,
-              children: const [
-                EditorScreen(),
-                GalleryScreen(),
-                SettingsScreen(),
-              ],
-            ),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) =>
-                  setState(() => _currentIndex = index),
-              destinations: _destinations,
+          child: BlocListener<SettingsCubit, SettingsState>(
+            listenWhen: (previous, current) =>
+                current.pendingTutorial && !previous.pendingTutorial,
+            listener: (context, state) {
+              // Switch to Editor Tab
+              setState(() => _currentIndex = 0);
+              // Clear the flag so it doesn't get stuck
+              context.read<SettingsCubit>().clearPendingTutorial();
+            },
+            child: Scaffold(
+              body: IndexedStack(
+                index: _currentIndex,
+                children: const [
+                  EditorScreen(),
+                  GalleryScreen(),
+                  SettingsScreen(),
+                ],
+              ),
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) =>
+                    setState(() => _currentIndex = index),
+                destinations: _destinations,
+              ),
             ),
           ),
         ),

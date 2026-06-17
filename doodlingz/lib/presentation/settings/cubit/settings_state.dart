@@ -5,42 +5,46 @@ class SettingsState extends Equatable {
   const SettingsState({
     required this.themeMode,
     required this.hubOnRight,
-    required this.showHints,
-    required this.onboardingSeen,
+    required this.showTutorialOnStartup,
+    required this.pendingTutorial,
   });
 
   final ThemeMode themeMode;
 
-  /// When true the editor hub is anchored to the bottom-right corner,
+  /// When true, the editor hub is anchored to the bottom-right corner,
   /// mirroring the layout for left-handed users.
   final bool hubOnRight;
 
-  /// When true the editor shows tool tooltips and the first-run overlay.
-  final bool showHints;
+  /// When true, the onboarding overlay shows automatically on every launch.
+  final bool showTutorialOnStartup;
 
-  /// Tracks whether the first-run onboarding overlay has been dismissed.
-  /// Persisted so the overlay only appears once unless explicitly replayed.
-  final bool onboardingSeen;
+  /// Flag used to signal AppShell to navigate to the Editor and trigger the overlay.
+  final bool pendingTutorial;
 
   static SettingsState initial() => const SettingsState(
     themeMode: ThemeMode.system,
     hubOnRight: false,
-    showHints: true,
-    onboardingSeen: false,
+    showTutorialOnStartup: true,
+    pendingTutorial: false,
   );
 
   SettingsState copyWith({
     ThemeMode? themeMode,
     bool? hubOnRight,
-    bool? showHints,
-    bool? onboardingSeen,
+    bool? showTutorialOnStartup,
+    bool? pendingTutorial,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     hubOnRight: hubOnRight ?? this.hubOnRight,
-    showHints: showHints ?? this.showHints,
-    onboardingSeen: onboardingSeen ?? this.onboardingSeen,
+    showTutorialOnStartup: showTutorialOnStartup ?? this.showTutorialOnStartup,
+    pendingTutorial: pendingTutorial ?? this.pendingTutorial,
   );
 
   @override
-  List<Object> get props => [themeMode, hubOnRight, showHints, onboardingSeen];
+  List<Object> get props => [
+        themeMode,
+        hubOnRight,
+        showTutorialOnStartup,
+        pendingTutorial,
+      ];
 }
