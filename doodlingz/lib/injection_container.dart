@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'data/datasources/local_drawing_data_source.dart';
 import 'data/repositories/drawing_repository_impl.dart';
 import 'domain/repositories/drawing_repository.dart';
+import 'presentation/gallery/cubit/gallery_cubit.dart';
 import 'presentation/settings/cubit/settings_cubit.dart';
 
 final sl = GetIt.instance;
@@ -25,5 +26,9 @@ Future<void> initDependencies() async {
 
   sl.registerLazySingleton<DrawingRepository>(
     () => DrawingRepositoryImpl(sl<LocalDrawingDataSource>()),
+  );
+
+  sl.registerLazySingleton<GalleryCubit>(
+    () => GalleryCubit(sl<DrawingRepository>()),
   );
 }
