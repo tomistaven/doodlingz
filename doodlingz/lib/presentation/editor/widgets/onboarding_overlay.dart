@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/ui_constants.dart';
+
 class OnboardingOverlay extends StatefulWidget {
   const OnboardingOverlay({
     super.key,
@@ -35,7 +37,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: _isClosing ? 0.0 : 1.0),
-      duration: const Duration(milliseconds: 300),
+      duration: UiConstants.overlayAnimDuration,
       curve: _isClosing ? Curves.easeIn : Curves.easeOutBack,
       onEnd: () {
         if (_isClosing) widget.onDismiss();
@@ -44,18 +46,18 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
         return Opacity(
           opacity: value.clamp(0.0, 1.0),
           child: ColoredBox(
-            color: Colors.black.withValues(alpha: 0.55 * value.clamp(0.0, 1.0)),
+            color: Colors.black.withValues(alpha: UiConstants.overlayScrimOpacity * value.clamp(0.0, 1.0)),
             child: Center(
               child: Transform.scale(
                 scale: 0.8 + (0.2 * value),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: UiConstants.overlayHorizontalMargin),
                   child: Material(
-                    color: const Color(0xFF242424),
-                    borderRadius: BorderRadius.circular(16),
+                    color: UiConstants.hubSurface,
+                    borderRadius: BorderRadius.circular(UiConstants.overlayCardRadius),
                     elevation: 8,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                      padding: UiConstants.overlayCardPadding,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +135,7 @@ class _PageTwoContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       key: const ValueKey('page2'),
-      height: 240, 
+      height: UiConstants.overlayToolListHeight,
       child: ListView(
         shrinkWrap: true,
         children: const [

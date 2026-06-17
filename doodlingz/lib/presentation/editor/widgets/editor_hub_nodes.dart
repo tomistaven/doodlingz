@@ -2,6 +2,7 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../domain/entities/drawing_tool.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
@@ -102,9 +103,9 @@ mixin HubNodes on State<EditorHub> {
       message: tooltip,
       child: buildCircle(
         onTap: onTap,
-        color: const Color(0xFF242424),
+        color: UiConstants.hubSurface,
         borderColor: colorScheme.outline,
-        child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 22),
+        child: Icon(icon, color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity), size: 22),
       ),
     );
   }
@@ -117,7 +118,7 @@ mixin HubNodes on State<EditorHub> {
       child: buildCircle(
         onTap: () => goTo(HubLevel.colors),
         color: current,
-        borderColor: Colors.white.withValues(alpha: 0.85),
+        borderColor: Colors.white.withValues(alpha: UiConstants.hubColorNodeBorderOpacity),
         child: Icon(Icons.palette, color: iconColor, size: 22),
       ),
     );
@@ -129,7 +130,7 @@ mixin HubNodes on State<EditorHub> {
       message: labelFor(tool),
       child: buildCircle(
         onTap: () => selectTool(tool),
-        color: const Color(0xFF242424),
+        color: UiConstants.hubSurface,
         borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
         borderWidth: isSelected ? 3 : 1.5,
         child: Icon(
@@ -175,7 +176,7 @@ mixin HubNodes on State<EditorHub> {
 
     return buildCircle(
       onTap: () => selectSize(size),
-      color: const Color(0xFF242424),
+      color: UiConstants.hubSurface,
       borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
       borderWidth: isSelected ? 3 : 1.5,
       child: Container(
@@ -199,8 +200,8 @@ mixin HubNodes on State<EditorHub> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: UiConstants.hubNodeSize,
+        height: UiConstants.hubNodeSize,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,

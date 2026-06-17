@@ -1,0 +1,71 @@
+import 'package:flutter/material.dart';
+
+/// UI layout, animation, and styling constants for widgets outside the canvas.
+///
+/// Canvas and tool dimensions belong in [CanvasConstants]. These constants
+/// cover the editor hub, overlays, and shared chrome surfaces.
+abstract final class UiConstants {
+  // ---- Hub geometry -------------------------------------------------------
+
+  /// Diameter of the main hub handle button.
+  static const double hubHandleSize = 64;
+
+  /// Diameter of each arc node button.
+  static const double hubNodeSize = 44;
+
+  /// Distance from the screen edge (and safe-area inset) to the hub handle.
+  static const double hubEdgeMargin = 24;
+
+  /// Radius of the inner arc row when two rows are shown.
+  static const double hubArcRadiusInner = 105;
+
+  /// Radius of the single arc row when only one row is shown.
+  static const double hubArcRadiusSingle = 115;
+
+  /// Radius of the outer arc row when two rows are shown.
+  static const double hubArcRadiusOuter = 190;
+
+  // ---- Hub animation ------------------------------------------------------
+
+  /// Duration of the hub open/close arc animation.
+  static const Duration hubArcDuration = Duration(milliseconds: 280);
+
+  /// Duration of the handle icon opacity fade.
+  static const Duration hubHandleFadeDuration = Duration(milliseconds: 150);
+
+  // ---- Hub colours --------------------------------------------------------
+
+  /// Background colour for hub nodes and the handle interior. Dark chrome,
+  /// matches the app surface colour but hardcoded so it never themes to white.
+  static const Color hubSurface = Color(0xFF242424);
+
+  /// Scrim opacity behind open hub arc nodes.
+  static const double hubScrimOpacity = 0.08;
+
+  /// Icon opacity for hub node icons.
+  static const double hubIconOpacity = 0.9;
+
+  /// Border opacity for the colour category node.
+  static const double hubColorNodeBorderOpacity = 0.85;
+
+  // ---- Overlay ------------------------------------------------------------
+
+  /// Duration of the onboarding overlay scale+fade animation.
+  static const Duration overlayAnimDuration = Duration(milliseconds: 300);
+
+  /// Peak scrim opacity behind the onboarding card.
+  static const double overlayScrimOpacity = 0.55;
+
+  /// Corner radius of the onboarding card.
+  static const double overlayCardRadius = 16;
+
+  /// Padding inside the onboarding card.
+  static const EdgeInsets overlayCardPadding =
+      EdgeInsets.fromLTRB(24, 28, 24, 20);
+
+  /// Horizontal margin between the onboarding card and screen edges.
+  static const double overlayHorizontalMargin = 32;
+
+  /// Fixed height of the tool-reference list on page 2 of the overlay.
+  static const double overlayToolListHeight = 240;
+}

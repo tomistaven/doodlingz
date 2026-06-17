@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/canvas_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../domain/entities/drawing_tool.dart';
 import '../../settings/cubit/settings_cubit.dart';
 import '../../settings/cubit/settings_state.dart';
@@ -29,9 +30,9 @@ class EditorHub extends StatefulWidget {
 
 class _EditorHubState extends State<EditorHub>
     with SingleTickerProviderStateMixin, HubNodes {
-  static const double _handleSize = 64;
-  static const double _nodeSize = 44;
-  static const double _baseMargin = 24;
+  static const double _handleSize = UiConstants.hubHandleSize;
+  static const double _nodeSize = UiConstants.hubNodeSize;
+  static const double _baseMargin = UiConstants.hubEdgeMargin;
 
   late final AnimationController _animController;
 
@@ -49,7 +50,7 @@ class _EditorHubState extends State<EditorHub>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: UiConstants.hubArcDuration,
     );
   }
 
@@ -157,7 +158,7 @@ class _EditorHubState extends State<EditorHub>
                           behavior: HitTestBehavior.opaque,
                           onTap: closeHub,
                           child: ColoredBox(
-                            color: Colors.black.withValues(alpha: 0.08),
+                            color: Colors.black.withValues(alpha: UiConstants.hubScrimOpacity),
                           ),
                         ),
                       ),
@@ -227,7 +228,9 @@ class _EditorHubState extends State<EditorHub>
     final int rowCount = isOuter ? (count - innerCount) : innerCount;
     final int rowIndex = isOuter ? index - innerCount : index;
 
-    final double targetRadius = useTwoRows ? (isOuter ? 190.0 : 105.0) : 115.0;
+    final double targetRadius = useTwoRows
+        ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
+        : UiConstants.hubArcRadiusSingle;
     final double distance = targetRadius * t;
 
     const double minAngle = math.pi / 36;
@@ -336,16 +339,16 @@ class _EditorHubState extends State<EditorHub>
             ),
             child: AnimatedOpacity(
               opacity: _isOpen ? 1.0 : 0.15,
-              duration: const Duration(milliseconds: 150),
+              duration: UiConstants.hubHandleFadeDuration,
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xFF242424),
+                  color: UiConstants.hubSurface,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Icon(
                     handleIcon(state.tool),
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity),
                     size: 24,
                   ),
                 ),
