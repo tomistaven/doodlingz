@@ -17,12 +17,17 @@ class CanvasState {
     required this.activeStroke,
     required this.canUndo,
     required this.canRedo,
+    required this.isDirty,
   });
 
   final ui.Image committedImage;
   final Stroke? activeStroke;
   final bool canUndo;
   final bool canRedo;
+
+  /// True when committed pixels have changed since the last save, load, or
+  /// reset. Drives the export prompt so a clean drawing exports without nagging.
+  final bool isDirty;
 }
 
 /// Drives the drawing canvas.
@@ -41,10 +46,13 @@ class CanvasController extends ValueNotifier<CanvasState> {
     activeStroke: null,
     canUndo: false,
     canRedo: false,
+    isDirty: false,
   );
 
   final List<ui.Image> _undoStack = [];
   final List<ui.Image> _redoStack = [];
+
+  bool _dirty = false;
 
   late Size _rasterSize;
   late Size _displaySize;
@@ -66,6 +74,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     final image =
         existingImage ?? await CanvasCompositor.createBlank(rasterSize);
 
+    _dirty = false;
     _initialised = true;
     _notify(image, null);
   }
@@ -144,6 +153,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     if (_undoStack.isEmpty) return;
     _redoStack.add(value.committedImage);
     final previous = _undoStack.removeLast();
+    _dirty = true;
     _notify(previous, null);
   }
 
@@ -151,6 +161,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     if (_redoStack.isEmpty) return;
     _undoStack.add(value.committedImage);
     final next = _redoStack.removeLast();
+    _dirty = true;
     _notify(next, null);
   }
 
@@ -160,6 +171,28 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _pushUndo(value.committedImage);
     final blank = await CanvasCompositor.createBlank(_rasterSize);
     _notify(blank, null);
+  }
+
+  /// Starts a fresh drawing: blank canvas, no history, not dirty.
+  ///
+  /// Unlike [clear] this is not undoable — it abandons the previous drawing
+  /// entirely, including its undo/redo branches, so the editor is in the same
+  /// state as a cold launch.
+  Future<void> reset() async {
+    if (!_initialised) return;
+    _undoStack.clear();
+    _redoStack.clear();
+    _dirty = false;
+    final blank = await CanvasCompositor.createBlank(_rasterSize);
+    _notify(blank, null);
+  }
+
+  /// Marks the current committed image as persisted, clearing the dirty flag
+  /// without altering pixels or history.
+  void markSaved() {
+    if (!_dirty) return;
+    _dirty = false;
+    _notify(value.committedImage, value.activeStroke);
   }
 
   Future<Uint8List> toPngBytes() =>
@@ -191,17 +224,16 @@ class CanvasController extends ValueNotifier<CanvasState> {
       final distance = random.nextDouble() * radius;
       return Offset(
         (centre.dx + cos(angle) * distance).clamp(0.0, _rasterSize.width - 1),
-        (centre.dy + sin(angle) * distance).clamp(0.0, _rasterSize.height - 1),
+        (centre.dy + sin(angle) * distance)
+            .clamp(0.0, _rasterSize.height - 1),
       );
     });
-    _notifyWithStroke(
-      Stroke(
-        drawingTool: current.drawingTool,
-        color: current.color,
-        size: current.size,
-        points: [...current.points, ...newPoints],
-      ),
-    );
+    _notifyWithStroke(Stroke(
+      drawingTool: current.drawingTool,
+      color: current.color,
+      size: current.size,
+      points: [...current.points, ...newPoints],
+    ));
   }
 
   void _pushUndo(ui.Image image) {
@@ -211,6 +243,9 @@ class CanvasController extends ValueNotifier<CanvasState> {
     }
     // A new action clears the redo branch.
     _redoStack.clear();
+    // Every committed action funnels through here, so this is the single
+    // point where the drawing becomes dirty.
+    _dirty = true;
   }
 
   void _notify(ui.Image image, Stroke? stroke) {
@@ -219,6 +254,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       activeStroke: stroke,
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
+      isDirty: _dirty,
     );
   }
 
@@ -228,6 +264,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       activeStroke: stroke,
       canUndo: value.canUndo,
       canRedo: value.canRedo,
+      isDirty: _dirty,
     );
   }
 
