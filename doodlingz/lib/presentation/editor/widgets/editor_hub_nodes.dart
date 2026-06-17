@@ -101,6 +101,7 @@ mixin HubNodes on State<EditorHub> {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
+      preferBelow: false,
       child: buildCircle(
         onTap: onTap,
         color: UiConstants.hubSurface,
@@ -115,6 +116,7 @@ mixin HubNodes on State<EditorHub> {
         current.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
     return Tooltip(
       message: 'Colour',
+      preferBelow: false,
       child: buildCircle(
         onTap: () => goTo(HubLevel.colors),
         color: current,
@@ -128,6 +130,7 @@ mixin HubNodes on State<EditorHub> {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: labelFor(tool),
+      preferBelow: false,
       child: buildCircle(
         onTap: () => selectTool(tool),
         color: UiConstants.hubSurface,

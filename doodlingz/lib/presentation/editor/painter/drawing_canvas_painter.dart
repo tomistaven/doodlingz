@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/drawing_tool.dart';
-import '../controller/canvas_controller.dart';
+import '../controller/canvas_state.dart';
 import '../engine/stroke.dart';
 
 /// Renders the committed raster image and the active stroke overlay.

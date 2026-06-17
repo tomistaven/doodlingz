@@ -320,6 +320,7 @@ class _EditorHubState extends State<EditorHub>
         message: _isOpen
             ? (_currentLevel == HubLevel.root ? 'Close' : 'Back')
             : labelFor(state.tool),
+        preferBelow: false,
         child: GestureDetector(
           onTap: _onHandleTap,
           child: Container(

@@ -10,8 +10,16 @@ import 'presentation/settings/cubit/settings_cubit.dart';
 
 final sl = GetIt.instance;
 
+/// Registers all app-scoped dependencies with the get_it service locator.
+///
+/// All registrations are lazy singletons except [SharedPreferences], which
+/// must be awaited before anything reads it. Call once in [main] before
+/// [runApp].
+///
+/// BLoCs that are screen-scoped (created and disposed with the screen) are
+/// NOT registered here — they are created directly in the screen widget.
+/// Only app-scoped singletons live here.
 Future<void> initDependencies() async {
-  // SharedPreferences must be awaited before anything that reads it.
   final prefs = await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(prefs);
 

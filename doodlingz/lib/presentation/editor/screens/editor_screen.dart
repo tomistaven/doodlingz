@@ -8,6 +8,7 @@ import '../../../core/constants/canvas_constants.dart';
 import '../../settings/cubit/settings_cubit.dart';
 import '../../settings/cubit/settings_state.dart';
 import '../controller/canvas_controller.dart';
+import '../controller/canvas_state.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
@@ -28,6 +29,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
 
   bool _initRequested = false;
   bool _tutorialDismissedThisSession = false;
+  bool _tutorialRequestedThisSession = false;
 
   /// Completes when [CanvasController.initialise] returns.
   /// Load requests that arrive before init finishes await this before
@@ -146,7 +148,10 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
         listenWhen: (previous, current) =>
             current.pendingTutorial && !previous.pendingTutorial,
         listener: (context, state) {
-          setState(() => _tutorialDismissedThisSession = false);
+          setState(() {
+            _tutorialDismissedThisSession = false;
+            _tutorialRequestedThisSession = true;
+          });
         },
         child: Scaffold(
           appBar: AppBar(
@@ -241,16 +246,16 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
               builder: (context, settings) {
                 if (_tutorialDismissedThisSession ||
                     (!settings.showTutorialOnStartup &&
-                        !settings.pendingTutorial)) {
+                        !_tutorialRequestedThisSession)) {
                   return const SizedBox.shrink();
                 }
                 return Positioned.fill(
                   child: OnboardingOverlay(
                     onDismiss: () {
-                      setState(() => _tutorialDismissedThisSession = true);
-                      if (settings.pendingTutorial) {
-                        context.read<SettingsCubit>().clearPendingTutorial();
-                      }
+                      setState(() {
+                        _tutorialDismissedThisSession = true;
+                        _tutorialRequestedThisSession = false;
+                      });
                     },
                   ),
                 );

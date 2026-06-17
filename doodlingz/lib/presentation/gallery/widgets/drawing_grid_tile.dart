@@ -5,6 +5,11 @@ import 'package:intl/intl.dart';
 
 import '../../../domain/entities/saved_drawing.dart';
 
+/// A single tile in the gallery grid.
+///
+/// Shows the drawing as a full-bleed thumbnail with a date label overlaid at
+/// the bottom. Supports tap, long-press, and a selection highlight overlay for
+/// multi-select mode.
 class DrawingGridTile extends StatelessWidget {
   const DrawingGridTile({
     super.key,

@@ -13,6 +13,8 @@ Future<void> main() async {
   runApp(const DoodlingzApp());
 }
 
+/// Root widget. Reads [SettingsCubit] to drive [MaterialApp.themeMode] so
+/// the entire app re-themes reactively when the user changes the setting.
 class DoodlingzApp extends StatelessWidget {
   const DoodlingzApp({super.key});
 

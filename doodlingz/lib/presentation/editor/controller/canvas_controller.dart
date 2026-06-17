@@ -9,26 +9,7 @@ import '../../../domain/entities/drawing_tool.dart';
 import '../engine/canvas_compositor.dart';
 import '../engine/coordinate_mapper.dart';
 import '../engine/stroke.dart';
-
-/// Holds the complete mutable state of the drawing canvas.
-class CanvasState {
-  const CanvasState({
-    required this.committedImage,
-    required this.activeStroke,
-    required this.canUndo,
-    required this.canRedo,
-    required this.isDirty,
-  });
-
-  final ui.Image committedImage;
-  final Stroke? activeStroke;
-  final bool canUndo;
-  final bool canRedo;
-
-  /// True when committed pixels have changed since the last save, load, or
-  /// reset. Drives the export prompt so a clean drawing exports without nagging.
-  final bool isDirty;
-}
+import 'canvas_state.dart';
 
 /// Drives the drawing canvas.
 ///

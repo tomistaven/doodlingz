@@ -5,6 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../domain/repositories/drawing_repository.dart';
 import 'gallery_state.dart';
 
+/// Manages the gallery's list of saved drawings.
+///
+/// Loads all drawings from [DrawingRepository] on demand, exposes delete
+/// operations, and re-emits a fresh [GalleryLoaded] state after any mutation
+/// so the grid stays in sync with storage.
 class GalleryCubit extends Cubit<GalleryState> {
   GalleryCubit(this._repository) : super(const GalleryLoading());
 

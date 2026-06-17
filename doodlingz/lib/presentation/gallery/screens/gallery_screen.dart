@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../domain/entities/saved_drawing.dart';
 import '../../../injection_container.dart';
-import '../../editor/cubit/editor_cubit.dart';
 import '../cubit/gallery_cubit.dart';
 import '../cubit/gallery_state.dart';
 import '../widgets/drawing_grid_tile.dart';
 import 'drawing_viewer_screen.dart';
+import 'gallery_actions.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -18,11 +17,12 @@ class GalleryScreen extends StatefulWidget {
 }
 
 class _GalleryScreenState extends State<GalleryScreen>
-    with AutomaticKeepAliveClientMixin {
-  final _picker = ImagePicker();
-
+    with AutomaticKeepAliveClientMixin, GalleryActions {
   /// Null when not in selection mode; non-null (possibly empty) when active.
   Set<String>? _selected;
+
+  @override
+  Set<String>? get selected => _selected;
 
   bool get _selecting => _selected != null;
 
@@ -39,7 +39,8 @@ class _GalleryScreenState extends State<GalleryScreen>
     setState(() => _selected = {firstPath});
   }
 
-  void _exitSelection() {
+  @override
+  void exitSelection() {
     setState(() => _selected = null);
   }
 
@@ -53,37 +54,6 @@ class _GalleryScreenState extends State<GalleryScreen>
     });
   }
 
-  Future<void> _deleteSelected() async {
-    final paths = _selected!.toList();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete ${paths.length} drawing${paths.length == 1 ? '' : 's'}?'),
-        content: const Text('This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    _exitSelection();
-    await sl<GalleryCubit>().deleteMany(paths);
-  }
-
   Future<void> _openDrawing(SavedDrawing drawing) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -92,16 +62,6 @@ class _GalleryScreenState extends State<GalleryScreen>
     );
 
     sl<GalleryCubit>().load();
-  }
-
-  Future<void> _importFromDevice() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-
-    final bytes = await picked.readAsBytes();
-    if (!mounted) return;
-
-    sl<EditorCubit>().requestLoad(bytes, null);
   }
 
   @override
@@ -115,7 +75,7 @@ class _GalleryScreenState extends State<GalleryScreen>
             ? AppBar(
                 leading: IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: _exitSelection,
+                  onPressed: exitSelection,
                 ),
                 title: Text(
                   '${_selected!.length} selected',
@@ -125,7 +85,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Delete selected',
                     onPressed:
-                        _selected!.isEmpty ? null : _deleteSelected,
+                        _selected!.isEmpty ? null : deleteSelected,
                   ),
                 ],
               )
@@ -135,7 +95,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                   IconButton(
                     icon: const Icon(Icons.add_photo_alternate_outlined),
                     tooltip: 'Import from device',
-                    onPressed: _importFromDevice,
+                    onPressed: importFromDevice,
                   ),
                 ],
               ),
