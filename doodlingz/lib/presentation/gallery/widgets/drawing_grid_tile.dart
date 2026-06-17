@@ -10,12 +10,14 @@ class DrawingGridTile extends StatelessWidget {
     super.key,
     required this.drawing,
     required this.onTap,
-    required this.onDelete,
+    required this.onLongPress,
+    this.isSelected = false,
   });
 
   final SavedDrawing drawing;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback onLongPress;
+  final bool isSelected;
 
   static final _dateFormat = DateFormat('dd MMM yyyy  HH:mm');
 
@@ -25,16 +27,16 @@ class DrawingGridTile extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onDelete,
+      onLongPress: onLongPress,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           fit: StackFit.expand,
           children: [
             Image(
-              // Key on updatedAt so a widget rebuild after overwrite creates a
-              // new Image widget, preventing Flutter reusing the stale one.
-              key: ValueKey('${drawing.filePath}_${drawing.updatedAt.millisecondsSinceEpoch}'),
+              key: ValueKey(
+                '${drawing.filePath}_${drawing.updatedAt.millisecondsSinceEpoch}',
+              ),
               image: FileImage(File(drawing.filePath)),
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => ColoredBox(
@@ -75,6 +77,22 @@ class DrawingGridTile extends StatelessWidget {
                 ),
               ),
             ),
+            if (isSelected)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: colorScheme.primary.withValues(alpha: 0.35),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.check_circle,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

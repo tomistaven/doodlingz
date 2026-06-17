@@ -29,6 +29,17 @@ class GalleryCubit extends Cubit<GalleryState> {
     }
   }
 
+  Future<void> deleteMany(List<String> filePaths) async {
+    try {
+      for (final path in filePaths) {
+        await _repository.delete(path);
+      }
+      await load();
+    } catch (e) {
+      emit(GalleryError(e.toString()));
+    }
+  }
+
   Future<Uint8List> loadBytes(String filePath) =>
       _repository.loadBytes(filePath);
 }
