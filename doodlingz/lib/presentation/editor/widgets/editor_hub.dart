@@ -6,12 +6,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/entities/drawing_tool.dart';
+import '../../settings/cubit/settings_cubit.dart';
+import '../../settings/cubit/settings_state.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 
 enum _HubLevel { root, tools, colors, sizes }
 
-/// Bottom-left floating control hub for the editor.
+/// Floating radial control hub for the editor.
+///
+/// Anchors to the bottom-left corner by default. When [SettingsState.hubOnRight]
+/// is true the entire hub mirrors to the bottom-right corner for left-handed use.
 class EditorHub extends StatefulWidget {
   const EditorHub({super.key});
 
@@ -84,9 +89,6 @@ class _EditorHubState extends State<EditorHub>
     _close();
   }
 
-  // Returns the relevant size options for the active tool. Fill has no stroke
-  // size so it returns an empty list — the size node is hidden at root when
-  // the list is empty.
   List<double> _sizesFor(DrawingTool tool) {
     switch (tool) {
       case DrawingTool.spray:
@@ -112,7 +114,8 @@ class _EditorHubState extends State<EditorHub>
       builder: (_) => BlocProvider.value(
         value: cubit,
         child: Dialog(
-          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
+          backgroundColor:
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -142,8 +145,10 @@ class _EditorHubState extends State<EditorHub>
                       alignment: Alignment.centerRight,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
                           shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 28,
@@ -174,41 +179,60 @@ class _EditorHubState extends State<EditorHub>
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
-    final handleBottom = _baseMargin + padding.bottom;
-    final handleLeft = _baseMargin + padding.left;
-    final handleCentreX = handleLeft + _handleSize / 2;
-    final handleCentreY = handleBottom + _handleSize / 2;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    return BlocBuilder<EditorCubit, EditorState>(
-      builder: (context, state) {
-        return AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final showArc = _open || _controller.value > 0;
-            return Stack(
-              children: [
-                if (_open)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _close,
-                      child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.08),
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, settings) {
+        final hubOnRight = settings.hubOnRight;
+
+        final handleBottom = _baseMargin + padding.bottom;
+        final double handleEdge;
+        final double handleCentreX;
+
+        if (hubOnRight) {
+          handleEdge = _baseMargin + padding.right;
+          handleCentreX = screenWidth - handleEdge - _handleSize / 2;
+        } else {
+          handleEdge = _baseMargin + padding.left;
+          handleCentreX = handleEdge + _handleSize / 2;
+        }
+
+        final handleCentreY = handleBottom + _handleSize / 2;
+
+        return BlocBuilder<EditorCubit, EditorState>(
+          builder: (context, state) {
+            return AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final showArc = _open || _controller.value > 0;
+                return Stack(
+                  children: [
+                    if (_open)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _close,
+                          child: ColoredBox(
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
+                        ),
                       ),
+                    if (showArc)
+                      ..._buildArcNodes(
+                        state: state,
+                        cx: handleCentreX,
+                        cy: handleCentreY,
+                        hubOnRight: hubOnRight,
+                      ),
+                    _buildHandle(
+                      state: state,
+                      edge: handleEdge,
+                      bottom: handleBottom,
+                      hubOnRight: hubOnRight,
                     ),
-                  ),
-                if (showArc)
-                  ..._buildArcNodes(
-                    state: state,
-                    cx: handleCentreX,
-                    cy: handleCentreY,
-                  ),
-                _buildHandle(
-                  state: state,
-                  left: handleLeft,
-                  bottom: handleBottom,
-                ),
-              ],
+                  ],
+                );
+              },
             );
           },
         );
@@ -220,6 +244,7 @@ class _EditorHubState extends State<EditorHub>
     required EditorState state,
     required double cx,
     required double cy,
+    required bool hubOnRight,
   }) {
     final nodes = _nodeContentsForLevel(state);
     final count = nodes.length;
@@ -235,6 +260,7 @@ class _EditorHubState extends State<EditorHub>
           opacity: opacity,
           cx: cx,
           cy: cy,
+          hubOnRight: hubOnRight,
           child: nodes[i],
         ),
     ];
@@ -247,6 +273,7 @@ class _EditorHubState extends State<EditorHub>
     required double opacity,
     required double cx,
     required double cy,
+    required bool hubOnRight,
     required Widget child,
   }) {
     final bool useTwoRows = count > 5;
@@ -280,8 +307,11 @@ class _EditorHubState extends State<EditorHub>
     }
 
     final double angle = startAngle + (rowIndex * actualStep);
-    final rx = math.cos(angle) * distance;
-    final uy = math.sin(angle) * distance;
+
+    // For the right-side anchor the arc sweeps up-left, so the x component
+    // is negated to mirror the geometry across the vertical axis.
+    final double rx = math.cos(angle) * distance * (hubOnRight ? -1 : 1);
+    final double uy = math.sin(angle) * distance;
 
     return Positioned(
       left: cx + rx - _nodeSize / 2,
@@ -381,7 +411,11 @@ class _EditorHubState extends State<EditorHub>
       onTap: _openCustomPicker,
       color: colorScheme.surface,
       borderColor: colorScheme.outline,
-      child: Icon(Icons.palette_outlined, size: 20, color: colorScheme.onSurface),
+      child: Icon(
+        Icons.palette_outlined,
+        size: 20,
+        color: colorScheme.onSurface,
+      ),
     );
   }
 
@@ -432,11 +466,13 @@ class _EditorHubState extends State<EditorHub>
 
   Widget _buildHandle({
     required EditorState state,
-    required double left,
+    required double edge,
     required double bottom,
+    required bool hubOnRight,
   }) {
     return Positioned(
-      left: left,
+      left: hubOnRight ? null : edge,
+      right: hubOnRight ? edge : null,
       bottom: bottom,
       child: GestureDetector(
         onTap: _onHandleTap,

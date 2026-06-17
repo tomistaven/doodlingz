@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'injection_container.dart';
-import 'presentation/editor/screens/editor_screen.dart';
+import 'presentation/settings/cubit/settings_cubit.dart';
+import 'presentation/settings/cubit/settings_state.dart';
+import 'presentation/shell/app_shell.dart';
+import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,11 +18,19 @@ class DoodlingzApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ThemeMode will be driven by SettingsCubit once the settings layer
-    // exists. Hardcoded to system default until then.
-    return const MaterialApp(
-      title: 'Doodlingz',
-      home: EditorScreen(),
+    return BlocProvider.value(
+      value: sl<SettingsCubit>(),
+      child: BlocBuilder<SettingsCubit, SettingsState>(
+        builder: (context, settings) {
+          return MaterialApp(
+            title: 'Doodlingz',
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: settings.themeMode,
+            home: const AppShell(),
+          );
+        },
+      ),
     );
   }
 }
