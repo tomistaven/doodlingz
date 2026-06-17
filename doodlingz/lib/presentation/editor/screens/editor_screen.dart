@@ -128,7 +128,6 @@ class _EditorScreenState extends State<EditorScreen> {
     if (mounted) cubit.acknowledgeLoad(filePath);
   }
 
-
   Future<void> _save() async {
     final cubit = context.read<EditorCubit>();
     final currentFilePath = cubit.state.currentFilePath;
@@ -153,6 +152,11 @@ class _EditorScreenState extends State<EditorScreen> {
               leading: const Icon(Icons.save),
               title: const Text('Overwrite existing'),
               onTap: () => Navigator.of(context).pop(_SaveChoice.overwrite),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.of(context).pop(),
             ),
           ],
         ),
@@ -196,21 +200,31 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _clear() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear canvas?'),
-        content: const Text('This wipes the canvas to white. You can undo it.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Clear'),
-          ),
-        ],
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Clear canvas',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              subtitle: const Text('Wipes to white. You can undo this.'),
+              onTap: () => Navigator.of(context).pop(true),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.of(context).pop(false),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -222,33 +236,42 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _export() async {
     final isDirty = _controller.value.isDirty;
 
-    final choice = await showDialog<_ExportChoice>(
+    final choice = await showModalBottomSheet<_ExportChoice>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export to gallery?'),
-        content: Text(
-          isDirty
-              ? 'You have unsaved changes. Save before exporting?'
-              : 'Export this drawing to your device gallery.',
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isDirty)
+              ListTile(
+                leading: const Icon(Icons.save),
+                title: const Text('Save & export'),
+                subtitle: const Text('Saves your drawing, then exports it.'),
+                onTap: () =>
+                    Navigator.of(context).pop(_ExportChoice.saveAndExport),
+              ),
+            if (isDirty)
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: const Text('Export anyway'),
+                subtitle: const Text('Exports without saving.'),
+                onTap: () =>
+                    Navigator.of(context).pop(_ExportChoice.exportOnly),
+              ),
+            if (!isDirty)
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: const Text('Export to device gallery'),
+                onTap: () =>
+                    Navigator.of(context).pop(_ExportChoice.exportOnly),
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.of(context).pop(_ExportChoice.cancel),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(_ExportChoice.cancel),
-            child: const Text('Cancel'),
-          ),
-          if (isDirty)
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(_ExportChoice.exportOnly),
-              child: const Text('Export anyway'),
-            ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(
-              isDirty ? _ExportChoice.saveAndExport : _ExportChoice.exportOnly,
-            ),
-            child: Text(isDirty ? 'Save & export' : 'Export'),
-          ),
-        ],
       ),
     );
 
@@ -285,25 +308,35 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _newDrawing() async {
     final isDirty = _controller.value.isDirty;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Start a new drawing?'),
-        content: Text(
-          isDirty
-              ? 'Your current drawing has unsaved changes that will be lost.'
-              : 'This clears the canvas and starts fresh.',
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.note_add_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'New drawing',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              subtitle: Text(
+                isDirty
+                    ? 'Unsaved changes will be lost.'
+                    : 'Clears the canvas and starts fresh.',
+              ),
+              onTap: () => Navigator.of(context).pop(true),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.of(context).pop(false),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('New drawing'),
-          ),
-        ],
       ),
     );
 
