@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'data/datasources/local_drawing_data_source.dart';
 import 'data/repositories/drawing_repository_impl.dart';
 import 'domain/repositories/drawing_repository.dart';
+import 'presentation/editor/cubit/editor_cubit.dart';
 import 'presentation/gallery/cubit/gallery_cubit.dart';
 import 'presentation/settings/cubit/settings_cubit.dart';
 
@@ -14,8 +15,6 @@ Future<void> initDependencies() async {
   final prefs = await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(prefs);
 
-  // SettingsCubit is a lazy singleton — one instance drives themeMode for
-  // the entire app lifetime and is provided above AppShell.
   sl.registerLazySingleton<SettingsCubit>(
     () => SettingsCubit(sl<SharedPreferences>()),
   );
@@ -29,4 +28,8 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<GalleryCubit>(
     () => GalleryCubit(sl<DrawingRepository>()),
   );
+
+  // App-scoped so gallery and viewer can trigger loads into the editor tab
+  // without pushing a second EditorScreen onto the navigator stack.
+  sl.registerLazySingleton<EditorCubit>(EditorCubit.new);
 }

@@ -59,6 +59,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
   bool _initialised = false;
 
+  bool get isInitialised => _initialised;
+
   /// Must be called once before any drawing operations.
   ///
   /// [rasterSize] is the fixed pixel buffer size.
@@ -185,6 +187,18 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _dirty = false;
     final blank = await CanvasCompositor.createBlank(_rasterSize);
     _notify(blank, null);
+  }
+
+  /// Swaps in a loaded image, wipes history, and marks the canvas clean.
+  ///
+  /// Parallel to [reset] but with content instead of blank. Safe to call only
+  /// after [initialise] has completed — callers must guard on [isInitialised].
+  void loadImage(ui.Image image) {
+    if (!_initialised) return;
+    _undoStack.clear();
+    _redoStack.clear();
+    _dirty = false;
+    _notify(image, null);
   }
 
   /// Marks the current committed image as persisted, clearing the dirty flag

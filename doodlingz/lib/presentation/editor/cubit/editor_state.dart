@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,8 @@ class EditorState extends Equatable {
     required this.tool,
     required this.color,
     required this.strokeSize,
+    this.currentFilePath,
+    this.pendingLoad,
   });
 
   final DrawingTool tool;
@@ -17,19 +21,36 @@ class EditorState extends Equatable {
   /// Brush, shape-outline, or spray radius — in raster pixels.
   final double strokeSize;
 
+  /// File path of the drawing currently loaded in the editor.
+  /// Null when the canvas holds an unsaved new drawing.
+  final String? currentFilePath;
+
+  /// Non-null when a load has been requested but not yet applied to the canvas.
+  /// Cleared by [EditorCubit.acknowledgeLoad] once the controller has consumed it.
+  final ({Uint8List bytes, String? filePath})? pendingLoad;
+
   static EditorState initial() => EditorState(
     tool: DrawingTool.brush,
     color: CanvasConstants.defaultToolColor,
     strokeSize: CanvasConstants.brushSizes[1],
   );
 
-  EditorState copyWith({DrawingTool? tool, Color? color, double? strokeSize}) =>
-      EditorState(
-        tool: tool ?? this.tool,
-        color: color ?? this.color,
-        strokeSize: strokeSize ?? this.strokeSize,
-      );
+  EditorState copyWith({
+    DrawingTool? tool,
+    Color? color,
+    double? strokeSize,
+    String? currentFilePath,
+    ({Uint8List bytes, String? filePath})? pendingLoad,
+    bool clearFilePath = false,
+    bool clearPendingLoad = false,
+  }) => EditorState(
+    tool: tool ?? this.tool,
+    color: color ?? this.color,
+    strokeSize: strokeSize ?? this.strokeSize,
+    currentFilePath: clearFilePath ? null : (currentFilePath ?? this.currentFilePath),
+    pendingLoad: clearPendingLoad ? null : (pendingLoad ?? this.pendingLoad),
+  );
 
   @override
-  List<Object> get props => [tool, color, strokeSize];
+  List<Object?> get props => [tool, color, strokeSize, currentFilePath, pendingLoad];
 }
