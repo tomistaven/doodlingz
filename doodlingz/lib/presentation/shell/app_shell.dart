@@ -7,17 +7,9 @@ import '../editor/cubit/editor_state.dart';
 import '../editor/screens/editor_screen.dart';
 import '../gallery/screens/gallery_screen.dart';
 import '../settings/cubit/settings_cubit.dart';
+import '../settings/cubit/settings_state.dart';
 import '../settings/screens/settings_screen.dart';
 
-/// Root scaffold that owns the bottom navigation bar and the three top-level
-/// screens: Editor, Gallery, and Settings.
-///
-/// Provides app-scoped [SettingsCubit] and [EditorCubit] to the subtree.
-/// Listens for two cross-tab navigation signals:
-/// - [EditorState.pendingLoad] — switches to the editor tab when the gallery
-///   viewer requests a drawing to be loaded.
-/// - [SettingsState.pendingTutorial] — switches to the editor tab when
-///   "Show tutorial again" is tapped in Settings.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -53,28 +45,35 @@ class _AppShellState extends State<AppShell> {
       child: BlocProvider.value(
         value: sl<EditorCubit>(),
         child: BlocListener<EditorCubit, EditorState>(
-          // Switch to the editor tab whenever a load is requested from outside
-          // the editor (gallery viewer, device import). The EditorScreen
-          // BlocListener then picks up pendingLoad and applies it to the canvas.
           listenWhen: (previous, current) =>
               current.pendingLoad != null && previous.pendingLoad == null,
           listener: (context, state) {
             setState(() => _currentIndex = 0);
           },
-          child: Scaffold(
-            body: IndexedStack(
-              index: _currentIndex,
-              children: const [
-                EditorScreen(),
-                GalleryScreen(),
-                SettingsScreen(),
-              ],
-            ),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) =>
-                  setState(() => _currentIndex = index),
-              destinations: _destinations,
+          child: BlocListener<SettingsCubit, SettingsState>(
+            listenWhen: (previous, current) =>
+                current.pendingTutorial && !previous.pendingTutorial,
+            listener: (context, state) {
+              setState(() => _currentIndex = 0);
+              // clearPendingTutorial is called by EditorScreen after it has
+              // set _tutorialRequestedThisSession, avoiding a race where
+              // AppShell clears the flag before EditorScreen's listener fires.
+            },
+            child: Scaffold(
+              body: IndexedStack(
+                index: _currentIndex,
+                children: const [
+                  EditorScreen(),
+                  GalleryScreen(),
+                  SettingsScreen(),
+                ],
+              ),
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) =>
+                    setState(() => _currentIndex = index),
+                destinations: _destinations,
+              ),
             ),
           ),
         ),

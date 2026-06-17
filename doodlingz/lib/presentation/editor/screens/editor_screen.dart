@@ -152,6 +152,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
             _tutorialDismissedThisSession = false;
             _tutorialRequestedThisSession = true;
           });
+          context.read<SettingsCubit>().clearPendingTutorial();
         },
         child: Scaffold(
           appBar: AppBar(
