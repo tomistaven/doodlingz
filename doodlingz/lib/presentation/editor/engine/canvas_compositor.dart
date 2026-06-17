@@ -26,11 +26,43 @@ class CanvasCompositor {
     return picture.toImage(size.width.toInt(), size.height.toInt());
   }
 
-  /// Loads a saved PNG [bytes] back into a [ui.Image] for editing.
-  static Future<ui.Image> fromBytes(Uint8List bytes) async {
+  /// Loads PNG [bytes] into a [ui.Image] scaled to fit [targetSize].
+  ///
+  /// Saved app drawings are already at raster size so the scale is 1:1.
+  /// Imported device photos are typically much larger — scaling them here
+  /// ensures the raster buffer dimensions match [targetSize] exactly, which
+  /// keeps the coordinate mapper accurate.
+  static Future<ui.Image> fromBytes(
+    Uint8List bytes,
+    Size targetSize,
+  ) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
-    return frame.image;
+    final source = frame.image;
+
+    // If the image is already the correct size (saved app drawing), return
+    // it directly without an extra draw call.
+    if (source.width == targetSize.width.toInt() &&
+        source.height == targetSize.height.toInt()) {
+      return source;
+    }
+
+    // Scale the image into a new recorder at targetSize so all subsequent
+    // drawing operations and coordinate mapping work against a consistent size.
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+
+    final srcRect = Rect.fromLTWH(
+      0,
+      0,
+      source.width.toDouble(),
+      source.height.toDouble(),
+    );
+    final dstRect = Offset.zero & targetSize;
+    canvas.drawImageRect(source, srcRect, dstRect, Paint());
+
+    final picture = recorder.endRecording();
+    return picture.toImage(targetSize.width.toInt(), targetSize.height.toInt());
   }
 
   /// Commits a completed [stroke] onto [current], returning a new image.

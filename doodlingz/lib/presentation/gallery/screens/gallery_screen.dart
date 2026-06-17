@@ -39,7 +39,7 @@ class _GalleryScreenState extends State<GalleryScreen>
       MaterialPageRoute<void>(
         builder: (_) => EditorScreen(
           existingImageBytes: bytes,
-          // existingFilePath added when EditorScreen is updated
+          existingFilePath: drawing.filePath,
         ),
       ),
     );

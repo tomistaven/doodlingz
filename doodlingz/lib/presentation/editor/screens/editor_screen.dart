@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/repositories/drawing_repository.dart';
 import '../../../injection_container.dart';
+import '../../gallery/cubit/gallery_cubit.dart';
 import '../controller/canvas_controller.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
@@ -15,10 +16,18 @@ import '../painter/drawing_canvas_painter.dart';
 import '../widgets/editor_hub.dart';
 
 class EditorScreen extends StatefulWidget {
-  const EditorScreen({super.key, this.existingImageBytes});
+  const EditorScreen({
+    super.key,
+    this.existingImageBytes,
+    this.existingFilePath,
+  });
 
-  /// Non-null when opening a saved drawing for editing.
+  /// Non-null when opening a saved drawing or imported image for editing.
   final Uint8List? existingImageBytes;
+
+  /// Non-null when the image was opened from the app gallery, enabling the
+  /// overwrite save option. Null for imported device images (save as new only).
+  final String? existingFilePath;
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -66,7 +75,10 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _initialiseCanvas(Size displaySize) async {
     ui.Image? existing;
     if (widget.existingImageBytes != null) {
-      existing = await CanvasCompositor.fromBytes(widget.existingImageBytes!);
+      existing = await CanvasCompositor.fromBytes(
+        widget.existingImageBytes!,
+        CanvasConstants.portraitCanvasSize,
+      );
     }
 
     if (!mounted) return;
@@ -81,6 +93,57 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _save() async {
     final bytes = await _controller.toPngBytes();
     await sl<DrawingRepository>().save(bytes);
+
+    // Notify the gallery singleton so the grid refreshes immediately even
+    // though EditorScreen is kept alive in IndexedStack.
+    sl<GalleryCubit>().load();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Drawing saved')),
+      );
+    }
+  }
+
+  Future<void> _saveWithChoice() async {
+    if (widget.existingFilePath == null) {
+      await _save();
+      return;
+    }
+
+    final choice = await showModalBottomSheet<_SaveChoice>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Save as new drawing'),
+              onTap: () => Navigator.of(context).pop(_SaveChoice.saveNew),
+            ),
+            ListTile(
+              leading: const Icon(Icons.save),
+              title: const Text('Overwrite existing'),
+              onTap: () => Navigator.of(context).pop(_SaveChoice.overwrite),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == null) return;
+
+    final bytes = await _controller.toPngBytes();
+
+    if (choice == _SaveChoice.overwrite) {
+      await sl<DrawingRepository>().overwrite(widget.existingFilePath!, bytes);
+    } else {
+      await sl<DrawingRepository>().save(bytes);
+    }
+
+    sl<GalleryCubit>().load();
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Drawing saved')),
@@ -103,9 +166,16 @@ class _EditorScreenState extends State<EditorScreen> {
                 onPressed: state.canUndo ? _controller.undo : null,
               ),
             ),
+            ValueListenableBuilder<CanvasState>(
+              valueListenable: _controller,
+              builder: (_, state, _) => IconButton(
+                icon: const Icon(Icons.redo),
+                onPressed: state.canRedo ? _controller.redo : null,
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _save,
+              onPressed: _saveWithChoice,
             ),
           ],
         ),
@@ -149,3 +219,5 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 }
+
+enum _SaveChoice { saveNew, overwrite }
