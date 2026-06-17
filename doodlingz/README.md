@@ -7,8 +7,8 @@ A mobile drawing app that lets you sketch, paint, and save your ideas anywhere �
 ## Screenshots
 
 | Editor | Tool Hub | Color Picker | Settings |
-|---|---|---|---|
-| ![](screenshots/01_editor.png) | ![](screenshots/02_hub.png) | ![](screenshots/03_color.png) | ![](screenshots/04_settings.png) |
+| --- | --- | --- | --- |
+| ![Editor screen](screenshots/01_editor.png) | ![Tool hub open](screenshots/02_hub.png) | ![Color picker](screenshots/03_color.png) | ![Settings screen](screenshots/04_settings.png) |
 
 ---
 
@@ -36,7 +36,7 @@ Doodlingz is a Flutter drawing application for Android. It gives you a full-scre
 ### Core Features
 
 | Feature | Description |
-|---|---|
+| --- | --- |
 | Brush | Freehand drawing in 3 sizes |
 | Eraser | Restores pixels to white canvas color in 3 sizes |
 | Spray / Airbrush | Scattered dot spray in 2 sizes |
@@ -51,7 +51,7 @@ Doodlingz is a Flutter drawing application for Android. It gives you a full-scre
 ### Extra Features
 
 | Feature | Notes |
-|---|---|
+| --- | --- |
 | Triangle shape tool | Drag to size, same gesture model as rectangle and ellipse |
 | Highlighter tool | Semi-transparent brush stroke |
 | Reviewer-ready APK | Pre-built APK on Google Drive, three install methods documented below |
@@ -59,7 +59,7 @@ Doodlingz is a Flutter drawing application for Android. It gives you a full-scre
 ### Bonus Features
 
 | Feature | What it does |
-|---|---|
+| --- | --- |
 | **Redo** | Full redo stack — restores steps undone in the current session |
 | **Left-handed mode** | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
 
@@ -69,7 +69,7 @@ Doodlingz is a Flutter drawing application for Android. It gives you a full-scre
 
 The project uses Flutter Clean Architecture with three layers:
 
-```
+```text
 lib/
   core/           Constants, theme, utilities shared across layers
   domain/         Business rules — entities and repository interfaces only, no Flutter imports
@@ -92,7 +92,7 @@ lib/
 ## Dependencies
 
 | Package | Purpose |
-|---|---|
+| --- | --- |
 | `flutter_bloc` | Cubit state management across all screens |
 | `equatable` | Value equality for Cubit states — prevents unnecessary rebuilds |
 | `get_it` | Dependency injection via service locator |
@@ -145,13 +145,13 @@ A pre-built APK is provided so the app can be tested without installing Flutter.
 
 ### Option 1: Install directly on an Android device
 
-**Step 1 — Allow installation from outside the Play Store**
+#### Step 1 — Allow installation from outside the Play Store
 
 1. Open **Settings** on your device.
 2. Search for **"Install unknown apps"** or go to **Security → Install unknown apps**.
 3. Find **Chrome** and toggle **Allow from this source** on.
 
-**Step 2 — Download and install**
+#### Step 2 — Download and install
 
 1. On your Android phone, open **Chrome** and tap the Google Drive link above. Tap **Download**.
 2. Open the **Files** app → **Downloads**.
@@ -162,12 +162,14 @@ A pre-built APK is provided so the app can be tested without installing Flutter.
 
 ### Option 2: Lightweight emulator (BlueStacks or NoxPlayer)
 
-**BlueStacks:**
+#### BlueStacks
+
 1. Download from [bluestacks.com](https://www.bluestacks.com) and install.
 2. Drag and drop the APK onto the BlueStacks window — it installs automatically.
 3. Launch **Doodlingz** from the My Apps tab.
 
-**NoxPlayer:**
+#### NoxPlayer
+
 1. Download from [bignox.com](https://www.bignox.com) and install.
 2. Drag and drop the APK onto the NoxPlayer window, or use the APK installer in the toolbar.
 3. Launch **Doodlingz** from the home screen.
@@ -195,8 +197,7 @@ The white canvas fills the screen. Draw by dragging your finger. The tool hub ha
 
 Tap the circular handle in the bottom corner to open the hub. The root level shows three category nodes: **Tools** (draw icon), **Color** (filled circle), and **Size** (line weight icon). Tap a category to expand it into its options. Tap a node to select it and close the hub. Tap the handle again or the scrim to close without changing anything.
 
-- While in a sub-level, the handle icon shows a back arrow — tap it to return to the root level.
-- The size node is hidden when the fill tool is active.
+While in a sub-level, the handle icon shows a back arrow — tap it to return to the root level. The size node is hidden when the fill tool is active.
 
 ### Shapes
 
