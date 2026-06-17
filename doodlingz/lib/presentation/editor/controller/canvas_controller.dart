@@ -154,6 +154,14 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(next, null);
   }
 
+  /// Wipes the canvas back to white as a single undoable action.
+  Future<void> clear() async {
+    if (!_initialised) return;
+    _pushUndo(value.committedImage);
+    final blank = await CanvasCompositor.createBlank(_rasterSize);
+    _notify(blank, null);
+  }
+
   Future<Uint8List> toPngBytes() =>
       CanvasCompositor.toPngBytes(value.committedImage);
 

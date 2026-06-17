@@ -151,6 +151,30 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
+  Future<void> _clear() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear canvas?'),
+        content: const Text('This wipes the canvas to white. You can undo it.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      await _controller.clear();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -172,6 +196,10 @@ class _EditorScreenState extends State<EditorScreen> {
                 icon: const Icon(Icons.redo),
                 onPressed: state.canRedo ? _controller.redo : null,
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _clear,
             ),
             IconButton(
               icon: const Icon(Icons.save),
