@@ -94,15 +94,16 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _save() async {
     final bytes = await _controller.toPngBytes();
     await sl<DrawingRepository>().save(bytes);
+    _controller.markSaved();
 
     // Notify the gallery singleton so the grid refreshes immediately even
     // though EditorScreen is kept alive in IndexedStack.
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Drawing saved')),
+      );
     }
   }
 
@@ -142,13 +143,14 @@ class _EditorScreenState extends State<EditorScreen> {
     } else {
       await sl<DrawingRepository>().save(bytes);
     }
+    _controller.markSaved();
 
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Drawing saved')),
+      );
     }
   }
 
@@ -177,6 +179,51 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _export() async {
+    final isDirty = _controller.value.isDirty;
+
+    final choice = await showDialog<_ExportChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Export to gallery?'),
+        content: Text(
+          isDirty
+              ? 'You have unsaved changes. Save before exporting?'
+              : 'Export this drawing to your device gallery.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(_ExportChoice.cancel),
+            child: const Text('Cancel'),
+          ),
+          if (isDirty)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(_ExportChoice.exportOnly),
+              child: const Text('Export anyway'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(
+              isDirty ? _ExportChoice.saveAndExport : _ExportChoice.exportOnly,
+            ),
+            child: Text(isDirty ? 'Save & export' : 'Export'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null || choice == _ExportChoice.cancel) return;
+
+    if (choice == _ExportChoice.saveAndExport) {
+      await _saveWithChoice();
+      // _saveWithChoice can be cancelled at its own sheet; if so the drawing
+      // is still dirty and we abort rather than export an unsaved drawing.
+      if (_controller.value.isDirty) return;
+    }
+
+    await _exportBytes();
+  }
+
+  Future<void> _exportBytes() async {
     final bytes = await _controller.toPngBytes();
 
     // Album groups exported drawings together in the device gallery.
@@ -185,16 +232,46 @@ class _EditorScreenState extends State<EditorScreen> {
     try {
       await Gal.putImageBytes(bytes, album: album);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Exported to gallery')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Exported to gallery')),
+        );
       }
     } on GalException catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Gallery access denied')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gallery access denied')),
+        );
       }
+    }
+  }
+
+  Future<void> _newDrawing() async {
+    final isDirty = _controller.value.isDirty;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start a new drawing?'),
+        content: Text(
+          isDirty
+              ? 'Your current drawing has unsaved changes that will be lost.'
+              : 'This clears the canvas and starts fresh.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('New drawing'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      await _controller.reset();
     }
   }
 
@@ -221,14 +298,39 @@ class _EditorScreenState extends State<EditorScreen> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _clear,
-            ),
-            IconButton(
               icon: const Icon(Icons.save),
               onPressed: _saveWithChoice,
             ),
-            IconButton(icon: const Icon(Icons.ios_share), onPressed: _export),
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              onPressed: _export,
+            ),
+            PopupMenuButton<_EditorMenu>(
+              onSelected: (item) {
+                switch (item) {
+                  case _EditorMenu.newDrawing:
+                    _newDrawing();
+                  case _EditorMenu.clear:
+                    _clear();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _EditorMenu.newDrawing,
+                  child: ListTile(
+                    leading: Icon(Icons.note_add_outlined),
+                    title: Text('New drawing'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _EditorMenu.clear,
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline),
+                    title: Text('Clear canvas'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         body: _buildCanvas(),
@@ -273,3 +375,7 @@ class _EditorScreenState extends State<EditorScreen> {
 }
 
 enum _SaveChoice { saveNew, overwrite }
+
+enum _ExportChoice { cancel, exportOnly, saveAndExport }
+
+enum _EditorMenu { newDrawing, clear }
