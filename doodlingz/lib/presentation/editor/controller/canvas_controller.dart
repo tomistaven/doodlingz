@@ -191,16 +191,17 @@ class CanvasController extends ValueNotifier<CanvasState> {
       final distance = random.nextDouble() * radius;
       return Offset(
         (centre.dx + cos(angle) * distance).clamp(0.0, _rasterSize.width - 1),
-        (centre.dy + sin(angle) * distance)
-            .clamp(0.0, _rasterSize.height - 1),
+        (centre.dy + sin(angle) * distance).clamp(0.0, _rasterSize.height - 1),
       );
     });
-    _notifyWithStroke(Stroke(
-      drawingTool: current.drawingTool,
-      color: current.color,
-      size: current.size,
-      points: [...current.points, ...newPoints],
-    ));
+    _notifyWithStroke(
+      Stroke(
+        drawingTool: current.drawingTool,
+        color: current.color,
+        size: current.size,
+        points: [...current.points, ...newPoints],
+      ),
+    );
   }
 
   void _pushUndo(ui.Image image) {

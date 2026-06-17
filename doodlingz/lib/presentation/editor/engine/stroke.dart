@@ -39,9 +39,9 @@ class Stroke {
 
   /// Returns a copy with an additional [point] appended.
   Stroke withPoint(Offset point) => Stroke(
-        drawingTool: drawingTool,
-        color: color,
-        size: size,
-        points: [...points, point],
-      );
+    drawingTool: drawingTool,
+    color: color,
+    size: size,
+    points: [...points, point],
+  );
 }

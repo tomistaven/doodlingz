@@ -2,10 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 class SettingsState extends Equatable {
-  const SettingsState({
-    required this.themeMode,
-    required this.hubOnRight,
-  });
+  const SettingsState({required this.themeMode, required this.hubOnRight});
 
   final ThemeMode themeMode;
 
@@ -13,10 +10,8 @@ class SettingsState extends Equatable {
   /// mirroring the layout for left-handed users.
   final bool hubOnRight;
 
-  static SettingsState initial() => const SettingsState(
-        themeMode: ThemeMode.system,
-        hubOnRight: false,
-      );
+  static SettingsState initial() =>
+      const SettingsState(themeMode: ThemeMode.system, hubOnRight: false);
 
   SettingsState copyWith({ThemeMode? themeMode, bool? hubOnRight}) =>
       SettingsState(

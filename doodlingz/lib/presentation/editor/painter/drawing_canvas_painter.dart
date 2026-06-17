@@ -10,9 +10,7 @@ import '../engine/stroke.dart';
 /// painted on top as a cheap vector overlay — avoiding a full raster
 /// commit on every pointer-move event.
 class DrawingCanvasPainter extends CustomPainter {
-  const DrawingCanvasPainter({
-    required this.state,
-  });
+  const DrawingCanvasPainter({required this.state});
 
   final CanvasState state;
 
@@ -69,8 +67,7 @@ class DrawingCanvasPainter extends CustomPainter {
       return;
     }
 
-    final path = Path()
-      ..moveTo(stroke.points.first.dx, stroke.points.first.dy);
+    final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
     for (final point in stroke.points.skip(1)) {
       path.lineTo(point.dx, point.dy);
     }

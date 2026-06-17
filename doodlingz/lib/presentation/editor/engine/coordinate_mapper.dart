@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-
 /// Maps a pointer position in screen (display) space to the corresponding
 /// pixel coordinate in the fixed raster buffer.
 ///

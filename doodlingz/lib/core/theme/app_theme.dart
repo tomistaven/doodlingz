@@ -17,24 +17,24 @@ abstract final class AppTheme {
   static const Color _lightSurfaceVariant = Color(0xFFEEEEEE);
 
   static ThemeData get dark => _build(
-        brightness: Brightness.dark,
-        accent: _accent,
-        scaffold: _darkScaffold,
-        surface: _darkSurface,
-        surfaceVariant: _darkSurfaceVariant,
-        onSurface: Colors.white,
-        onSurfaceVariant: Colors.white70,
-      );
+    brightness: Brightness.dark,
+    accent: _accent,
+    scaffold: _darkScaffold,
+    surface: _darkSurface,
+    surfaceVariant: _darkSurfaceVariant,
+    onSurface: Colors.white,
+    onSurfaceVariant: Colors.white70,
+  );
 
   static ThemeData get light => _build(
-        brightness: Brightness.light,
-        accent: _accentDark,
-        scaffold: _lightScaffold,
-        surface: _lightSurface,
-        surfaceVariant: _lightSurfaceVariant,
-        onSurface: Colors.black87,
-        onSurfaceVariant: Colors.black54,
-      );
+    brightness: Brightness.light,
+    accent: _accentDark,
+    scaffold: _lightScaffold,
+    surface: _lightSurface,
+    surfaceVariant: _lightSurfaceVariant,
+    onSurface: Colors.black87,
+    onSurfaceVariant: Colors.black54,
+  );
 
   static ThemeData _build({
     required Brightness brightness,
@@ -57,11 +57,11 @@ abstract final class AppTheme {
       colorScheme: ColorScheme(
         brightness: brightness,
         primary: accent,
-        onPrimary:
-            brightness == Brightness.dark ? Colors.black : Colors.white,
+        onPrimary: brightness == Brightness.dark ? Colors.black : Colors.white,
         secondary: accent,
-        onSecondary:
-            brightness == Brightness.dark ? Colors.black : Colors.white,
+        onSecondary: brightness == Brightness.dark
+            ? Colors.black
+            : Colors.white,
         error: const Color(0xFFCF6679),
         onError: Colors.white,
         surface: surface,
@@ -77,9 +77,7 @@ abstract final class AppTheme {
         color: surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,

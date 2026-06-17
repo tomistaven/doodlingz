@@ -42,11 +42,7 @@ class _AppShellState extends State<AppShell> {
       child: Scaffold(
         body: IndexedStack(
           index: _currentIndex,
-          children: const [
-            EditorScreen(),
-            GalleryScreen(),
-            SettingsScreen(),
-          ],
+          children: const [EditorScreen(), GalleryScreen(), SettingsScreen()],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,

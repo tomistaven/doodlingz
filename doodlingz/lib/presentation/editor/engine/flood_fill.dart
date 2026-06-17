@@ -78,13 +78,17 @@ Uint8List floodFill(FloodFillParams params) {
       targetB,
       targetA,
       params.tolerance,
-    )) { continue; }
+    )) {
+      continue;
+    }
 
     // Check the pixel hasn't already been filled in a previous iteration.
     if (pixels[idx] == fillR &&
         pixels[idx + 1] == fillG &&
         pixels[idx + 2] == fillB &&
-        pixels[idx + 3] == fillA) { continue; }
+        pixels[idx + 3] == fillA) {
+      continue;
+    }
 
     pixels[idx] = fillR;
     pixels[idx + 1] = fillG;
@@ -101,8 +105,14 @@ Uint8List floodFill(FloodFillParams params) {
 }
 
 bool _withinTolerance(
-  int r, int g, int b, int a,
-  int tr, int tg, int tb, int ta,
+  int r,
+  int g,
+  int b,
+  int a,
+  int tr,
+  int tg,
+  int tb,
+  int ta,
   int tolerance,
 ) {
   return (r - tr).abs() <= tolerance &&

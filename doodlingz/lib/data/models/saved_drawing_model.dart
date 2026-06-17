@@ -28,10 +28,6 @@ class SavedDrawingModel {
       createdAt = file.lastModifiedSync();
     }
 
-    return SavedDrawing(
-      id: id,
-      filePath: file.path,
-      createdAt: createdAt,
-    );
+    return SavedDrawing(id: id, filePath: file.path, createdAt: createdAt);
   }
 }

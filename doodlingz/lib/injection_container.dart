@@ -20,9 +20,7 @@ Future<void> initDependencies() async {
     () => SettingsCubit(sl<SharedPreferences>()),
   );
 
-  sl.registerLazySingleton<LocalDrawingDataSource>(
-    LocalDrawingDataSource.new,
-  );
+  sl.registerLazySingleton<LocalDrawingDataSource>(LocalDrawingDataSource.new);
 
   sl.registerLazySingleton<DrawingRepository>(
     () => DrawingRepositoryImpl(sl<LocalDrawingDataSource>()),

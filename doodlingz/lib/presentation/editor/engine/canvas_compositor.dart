@@ -32,10 +32,7 @@ class CanvasCompositor {
   /// Imported device photos are typically much larger — scaling them here
   /// ensures the raster buffer dimensions match [targetSize] exactly, which
   /// keeps the coordinate mapper accurate.
-  static Future<ui.Image> fromBytes(
-    Uint8List bytes,
-    Size targetSize,
-  ) async {
+  static Future<ui.Image> fromBytes(Uint8List bytes, Size targetSize) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final source = frame.image;

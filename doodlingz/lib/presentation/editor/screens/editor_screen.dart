@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gal/gal.dart';
 
 import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/repositories/drawing_repository.dart';
@@ -99,9 +100,9 @@ class _EditorScreenState extends State<EditorScreen> {
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
     }
   }
 
@@ -145,9 +146,9 @@ class _EditorScreenState extends State<EditorScreen> {
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
     }
   }
 
@@ -172,6 +173,28 @@ class _EditorScreenState extends State<EditorScreen> {
 
     if (confirmed ?? false) {
       await _controller.clear();
+    }
+  }
+
+  Future<void> _export() async {
+    final bytes = await _controller.toPngBytes();
+
+    // Album groups exported drawings together in the device gallery.
+    const album = 'Doodlingz';
+
+    try {
+      await Gal.putImageBytes(bytes, album: album);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exported to gallery')));
+      }
+    } on GalException catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Gallery access denied')));
+      }
     }
   }
 
@@ -205,6 +228,7 @@ class _EditorScreenState extends State<EditorScreen> {
               icon: const Icon(Icons.save),
               onPressed: _saveWithChoice,
             ),
+            IconButton(icon: const Icon(Icons.ios_share), onPressed: _export),
           ],
         ),
         body: _buildCanvas(),

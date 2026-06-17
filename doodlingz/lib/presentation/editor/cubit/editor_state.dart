@@ -18,16 +18,12 @@ class EditorState extends Equatable {
   final double strokeSize;
 
   static EditorState initial() => EditorState(
-        tool: DrawingTool.brush,
-        color: CanvasConstants.defaultToolColor,
-        strokeSize: CanvasConstants.brushSizes[1],
-      );
+    tool: DrawingTool.brush,
+    color: CanvasConstants.defaultToolColor,
+    strokeSize: CanvasConstants.brushSizes[1],
+  );
 
-  EditorState copyWith({
-    DrawingTool? tool,
-    Color? color,
-    double? strokeSize,
-  }) =>
+  EditorState copyWith({DrawingTool? tool, Color? color, double? strokeSize}) =>
       EditorState(
         tool: tool ?? this.tool,
         color: color ?? this.color,

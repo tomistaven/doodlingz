@@ -15,8 +15,7 @@ class DrawingRepositoryImpl implements DrawingRepository {
   final LocalDrawingDataSource _dataSource;
 
   @override
-  Future<SavedDrawing> save(Uint8List pngBytes) =>
-      _dataSource.save(pngBytes);
+  Future<SavedDrawing> save(Uint8List pngBytes) => _dataSource.save(pngBytes);
 
   @override
   Future<SavedDrawing> overwrite(String filePath, Uint8List pngBytes) =>

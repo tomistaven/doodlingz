@@ -112,14 +112,14 @@ class _GalleryScreenState extends State<GalleryScreen>
           builder: (context, state) {
             return switch (state) {
               GalleryLoading() => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: CircularProgressIndicator(),
+              ),
               GalleryError(:final message) => Center(
-                  child: Text(
-                    'Could not load drawings\n$message',
-                    textAlign: TextAlign.center,
-                  ),
+                child: Text(
+                  'Could not load drawings\n$message',
+                  textAlign: TextAlign.center,
                 ),
+              ),
               GalleryLoaded(:final drawings) when drawings.isEmpty =>
                 const Center(
                   child: Column(
@@ -132,21 +132,20 @@ class _GalleryScreenState extends State<GalleryScreen>
                   ),
                 ),
               GalleryLoaded(:final drawings) => GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 3 / 4,
-                  ),
-                  itemCount: drawings.length,
-                  itemBuilder: (_, index) => DrawingGridTile(
-                    drawing: drawings[index],
-                    onTap: () => _openDrawing(drawings[index]),
-                    onDelete: () => _confirmDelete(drawings[index]),
-                  ),
+                padding: const EdgeInsets.all(12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 3 / 4,
                 ),
+                itemCount: drawings.length,
+                itemBuilder: (_, index) => DrawingGridTile(
+                  drawing: drawings[index],
+                  onTap: () => _openDrawing(drawings[index]),
+                  onDelete: () => _confirmDelete(drawings[index]),
+                ),
+              ),
             };
           },
         ),

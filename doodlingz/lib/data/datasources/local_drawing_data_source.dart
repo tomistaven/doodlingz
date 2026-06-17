@@ -27,15 +27,15 @@ class LocalDrawingDataSource {
 
   Future<SavedDrawing> save(Uint8List pngBytes) async {
     final dir = await _getDrawingsDir();
-    final timestamp =
-        DateFormat(AppConstants.timestampPattern).format(DateTime.now());
+    final timestamp = DateFormat(
+      AppConstants.timestampPattern,
+    ).format(DateTime.now());
     final file = File('${dir.path}/${AppConstants.fileName(timestamp)}');
     await file.writeAsBytes(pngBytes, flush: true);
     return SavedDrawingModel.fromFile(file);
   }
 
-  Future<SavedDrawing> overwrite(
-      String filePath, Uint8List pngBytes) async {
+  Future<SavedDrawing> overwrite(String filePath, Uint8List pngBytes) async {
     final file = File(filePath);
     await file.writeAsBytes(pngBytes, flush: true);
     return SavedDrawingModel.fromFile(file);

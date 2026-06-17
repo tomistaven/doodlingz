@@ -13,10 +13,14 @@ abstract final class CanvasConstants {
   static const int rasterShortSide = 810;
   static const int rasterLongSide = 1080;
 
-  static final Size portraitCanvasSize =
-      Size(rasterShortSide.toDouble(), rasterLongSide.toDouble());
-  static final Size landscapeCanvasSize =
-      Size(rasterLongSide.toDouble(), rasterShortSide.toDouble());
+  static final Size portraitCanvasSize = Size(
+    rasterShortSide.toDouble(),
+    rasterLongSide.toDouble(),
+  );
+  static final Size landscapeCanvasSize = Size(
+    rasterLongSide.toDouble(),
+    rasterShortSide.toDouble(),
+  );
 
   // The canvas substrate is white by default and is never themed; the eraser
   // restores affected pixels to exactly this color.

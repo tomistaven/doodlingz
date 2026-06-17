@@ -114,8 +114,9 @@ class _EditorHubState extends State<EditorHub>
       builder: (_) => BlocProvider.value(
         value: cubit,
         child: Dialog(
-          backgroundColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.00),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -145,10 +146,12 @@ class _EditorHubState extends State<EditorHub>
                       alignment: Alignment.centerRight,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 28,
@@ -328,10 +331,7 @@ class _EditorHubState extends State<EditorHub>
     switch (_level) {
       case _HubLevel.root:
         return [
-          _categoryNode(
-            icon: Icons.draw,
-            onTap: () => _goTo(_HubLevel.tools),
-          ),
+          _categoryNode(icon: Icons.draw, onTap: () => _goTo(_HubLevel.tools)),
           _colorCategoryNode(state.color),
           if (sizes.isNotEmpty)
             _categoryNode(
@@ -368,8 +368,9 @@ class _EditorHubState extends State<EditorHub>
   }
 
   Widget _colorCategoryNode(Color current) {
-    final iconColor =
-        current.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
+    final iconColor = current.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
     return _circle(
       onTap: () => _goTo(_HubLevel.colors),
       color: current,
@@ -544,10 +545,6 @@ class _EditorHubState extends State<EditorHub>
   }
 
   static const List<BoxShadow> _shadow = [
-    BoxShadow(
-      color: Color(0x40000000),
-      blurRadius: 6,
-      offset: Offset(2, 2),
-    ),
+    BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(2, 2)),
   ];
 }
