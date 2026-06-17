@@ -1,15 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:gal/gal.dart';
 
 import '../../../core/constants/canvas_constants.dart';
-import '../../../domain/repositories/drawing_repository.dart';
-import '../../../injection_container.dart';
-import '../../gallery/cubit/gallery_cubit.dart';
 import '../../settings/cubit/settings_cubit.dart';
 import '../../settings/cubit/settings_state.dart';
 import '../controller/canvas_controller.dart';
@@ -19,6 +14,7 @@ import '../engine/canvas_compositor.dart';
 import '../painter/drawing_canvas_painter.dart';
 import '../widgets/editor_hub.dart';
 import '../widgets/onboarding_overlay.dart';
+import 'editor_actions.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
@@ -27,7 +23,7 @@ class EditorScreen extends StatefulWidget {
   State<EditorScreen> createState() => _EditorScreenState();
 }
 
-class _EditorScreenState extends State<EditorScreen> {
+class _EditorScreenState extends State<EditorScreen> with EditorActions {
   late final CanvasController _controller;
 
   bool _initRequested = false;
@@ -38,6 +34,9 @@ class _EditorScreenState extends State<EditorScreen> {
   /// calling [CanvasController.loadImage], preventing a race between the
   /// cold-launch blank creation and an incoming image swap.
   final Completer<void> _initCompleter = Completer<void>();
+
+  @override
+  CanvasController get controller => _controller;
 
   @override
   void initState() {
@@ -109,8 +108,8 @@ class _EditorScreenState extends State<EditorScreen> {
       }
 
       if (choice == _LoadChoice.save) {
-        await _save();
-        // _save can itself be cancelled at the bottom sheet; if the canvas
+        await save();
+        // save() can itself be cancelled at the bottom sheet; if the canvas
         // is still dirty the user backed out, so abort the load too.
         if (!mounted || _controller.value.isDirty) {
           cubit.cancelLoad();
@@ -132,224 +131,6 @@ class _EditorScreenState extends State<EditorScreen> {
     if (mounted) cubit.acknowledgeLoad(filePath);
   }
 
-  Future<void> _save() async {
-    final cubit = context.read<EditorCubit>();
-    final currentFilePath = cubit.state.currentFilePath;
-
-    if (currentFilePath == null) {
-      await _saveNew(cubit);
-      return;
-    }
-
-    final choice = await showModalBottomSheet<_SaveChoice>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('Save as new drawing'),
-              onTap: () => Navigator.of(context).pop(_SaveChoice.saveNew),
-            ),
-            ListTile(
-              leading: const Icon(Icons.save),
-              title: const Text('Overwrite existing'),
-              onTap: () => Navigator.of(context).pop(_SaveChoice.overwrite),
-            ),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (choice == null) return;
-
-    final bytes = await _controller.toPngBytes();
-
-    if (choice == _SaveChoice.overwrite) {
-      await sl<DrawingRepository>().overwrite(currentFilePath, bytes);
-      _controller.markSaved();
-      await FileImage(File(currentFilePath)).evict();
-    } else {
-      await _saveNew(cubit, bytes: bytes);
-      return;
-    }
-
-    sl<GalleryCubit>().load();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
-    }
-  }
-
-  Future<void> _saveNew(EditorCubit cubit, {Uint8List? bytes}) async {
-    final pngBytes = bytes ?? await _controller.toPngBytes();
-    final saved = await sl<DrawingRepository>().save(pngBytes);
-    _controller.markSaved();
-    cubit.notifySaved(saved.filePath);
-    sl<GalleryCubit>().load();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
-    }
-  }
-
-  Future<void> _clear() async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                'Clear canvas',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              subtitle: const Text('Wipes to white. You can undo this.'),
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.of(context).pop(false),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed ?? false) {
-      await _controller.clear();
-    }
-  }
-
-  Future<void> _export() async {
-    final isDirty = _controller.value.isDirty;
-
-    final choice = await showModalBottomSheet<_ExportChoice>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isDirty)
-              ListTile(
-                leading: const Icon(Icons.save),
-                title: const Text('Save & export'),
-                subtitle: const Text('Saves your drawing, then exports it.'),
-                onTap: () =>
-                    Navigator.of(context).pop(_ExportChoice.saveAndExport),
-              ),
-            if (isDirty)
-              ListTile(
-                leading: const Icon(Icons.ios_share),
-                title: const Text('Export anyway'),
-                subtitle: const Text('Exports without saving.'),
-                onTap: () =>
-                    Navigator.of(context).pop(_ExportChoice.exportOnly),
-              ),
-            if (!isDirty)
-              ListTile(
-                leading: const Icon(Icons.ios_share),
-                title: const Text('Export to device gallery'),
-                onTap: () =>
-                    Navigator.of(context).pop(_ExportChoice.exportOnly),
-              ),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.of(context).pop(_ExportChoice.cancel),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (choice == null || choice == _ExportChoice.cancel) return;
-
-    if (choice == _ExportChoice.saveAndExport) {
-      await _save();
-      if (_controller.value.isDirty) return;
-    }
-
-    await _exportBytes();
-  }
-
-  Future<void> _exportBytes() async {
-    final bytes = await _controller.toPngBytes();
-    const album = 'Doodlingz';
-
-    try {
-      await Gal.putImageBytes(bytes, album: album);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exported to gallery')),
-        );
-      }
-    } on GalException catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gallery access denied')),
-        );
-      }
-    }
-  }
-
-  Future<void> _newDrawing() async {
-    final isDirty = _controller.value.isDirty;
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                Icons.note_add_outlined,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                'New drawing',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              subtitle: Text(
-                isDirty
-                    ? 'Unsaved changes will be lost.'
-                    : 'Clears the canvas and starts fresh.',
-              ),
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.of(context).pop(false),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed ?? false) {
-      await _controller.reset();
-      if (mounted) context.read<EditorCubit>().notifyNew();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<EditorCubit, EditorState>(
@@ -365,7 +146,6 @@ class _EditorScreenState extends State<EditorScreen> {
         listenWhen: (previous, current) =>
             current.pendingTutorial && !previous.pendingTutorial,
         listener: (context, state) {
-          // If triggered manually from settings, reset the session flag
           setState(() => _tutorialDismissedThisSession = false);
         },
         child: Scaffold(
@@ -388,19 +168,19 @@ class _EditorScreenState extends State<EditorScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.save),
-                onPressed: _save,
+                onPressed: save,
               ),
               IconButton(
                 icon: const Icon(Icons.ios_share),
-                onPressed: _export,
+                onPressed: export,
               ),
               PopupMenuButton<_EditorMenu>(
                 onSelected: (item) {
                   switch (item) {
                     case _EditorMenu.newDrawing:
-                      _newDrawing();
+                      newDrawing();
                     case _EditorMenu.clear:
-                      _clear();
+                      clear();
                   }
                 },
                 itemBuilder: (_) => const [
@@ -459,11 +239,11 @@ class _EditorScreenState extends State<EditorScreen> {
             const Positioned.fill(child: EditorHub()),
             BlocBuilder<SettingsCubit, SettingsState>(
               builder: (context, settings) {
-                if (_tutorialDismissedThisSession || 
-                    (!settings.showTutorialOnStartup && !settings.pendingTutorial)) {
+                if (_tutorialDismissedThisSession ||
+                    (!settings.showTutorialOnStartup &&
+                        !settings.pendingTutorial)) {
                   return const SizedBox.shrink();
                 }
-                
                 return Positioned.fill(
                   child: OnboardingOverlay(
                     onDismiss: () {
@@ -482,10 +262,6 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 }
-
-enum _SaveChoice { saveNew, overwrite }
-
-enum _ExportChoice { cancel, exportOnly, saveAndExport }
 
 enum _EditorMenu { newDrawing, clear }
 
