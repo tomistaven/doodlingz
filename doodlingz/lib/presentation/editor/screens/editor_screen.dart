@@ -232,11 +232,14 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                   onPanUpdate: (d) =>
                       _controller.onPointerMove(d.localPosition),
                   onPanEnd: (_) => _controller.onPointerUp(),
-                  child: ValueListenableBuilder<CanvasState>(
-                    valueListenable: _controller,
-                    builder: (_, state, _) => CustomPaint(
-                      painter: DrawingCanvasPainter(state: state),
-                      size: Size(constraints.maxWidth, constraints.maxHeight),
+                  child: ColoredBox(
+                    color: CanvasConstants.canvasColor,
+                    child: ValueListenableBuilder<CanvasState>(
+                      valueListenable: _controller,
+                      builder: (_, state, _) => CustomPaint(
+                        painter: DrawingCanvasPainter(state: state),
+                        size: Size(constraints.maxWidth, constraints.maxHeight),
+                      ),
                     ),
                   ),
                 );

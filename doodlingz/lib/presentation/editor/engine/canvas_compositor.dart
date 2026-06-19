@@ -96,7 +96,7 @@ class CanvasCompositor {
     Color fillColor,
   ) async {
     final byteData = await current.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
+      format: ui.ImageByteFormat.rawStraightRgba,
     );
     if (byteData == null) return current;
 
@@ -107,8 +107,8 @@ class CanvasCompositor {
         pixels: pixels,
         width: current.width,
         height: current.height,
-        startX: rasterPoint.dx.toInt(),
-        startY: rasterPoint.dy.toInt(),
+        startX: rasterPoint.dx.round().clamp(0, current.width - 1),
+        startY: rasterPoint.dy.round().clamp(0, current.height - 1),
         fillColor: _colorToFillInt(fillColor),
         tolerance: CanvasConstants.fillColorTolerance,
       ),
