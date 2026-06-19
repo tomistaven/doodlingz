@@ -98,6 +98,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | `flex_color_picker` | Color wheel dialog with hex input and opacity slider |
 | `gal` | Exports a drawing into the device photo gallery |
 | `image_picker` | Imports a photo from the device gallery onto the canvas |
+| `material_symbols_icons` | Supplies the eraser glyph (`Symbols.ink_eraser`), absent from the standard Material icon set |
 
 ---
 
