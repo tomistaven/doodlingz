@@ -216,7 +216,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
     final radius = current.size;
     final newPoints = List.generate(CanvasConstants.sprayDensity, (_) {
       final angle = random.nextDouble() * 2 * pi;
-      final distance = random.nextDouble() * radius;
+      // Multiplying two randoms heavily weights the distribution toward the center
+      final distance = (random.nextDouble() * random.nextDouble()) * radius;
       return Offset(
         (centre.dx + cos(angle) * distance).clamp(0.0, _rasterSize.width - 1),
         (centre.dy + sin(angle) * distance)

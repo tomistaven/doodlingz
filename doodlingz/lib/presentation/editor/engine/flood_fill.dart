@@ -28,6 +28,21 @@ class FloodFillParams {
 
 /// Performs an iterative 4-connected flood fill on a raw RGBA pixel buffer.
 ///
+/// Anti-aliased pixels right at a stroke's edge sit between the target
+/// color and the boundary color, so a hard tolerance cutoff either leaves
+/// a visible unfilled ring (tolerance too low) or eats into the boundary
+/// stroke itself (tolerance too high, or spatial dilation — see below).
+///
+/// Instead, every pixel the main fill reaches but rejects on tolerance is
+/// blended toward the fill color in proportion to how close that pixel's
+/// own original color already was to the target. A pixel that's mostly
+/// target color (e.g. a faint AA fringe) gets mostly filled; a pixel
+/// that's mostly boundary color (e.g. the solid stroke itself) is barely
+/// touched. This is a per-pixel decision based only on that pixel's own
+/// color — unlike spatial dilation, it can never penetrate further than
+/// the single ring of genuinely-blended edge pixels, so it can't eat
+/// through a stroke regardless of how thin that stroke is.
+///
 /// Returns a new [Uint8List] with the filled pixels. The input buffer is
 /// never mutated, keeping the caller's snapshot state clean.
 ///
@@ -60,33 +75,46 @@ Uint8List floodFill(FloodFillParams params) {
   final queue = <int>[];
   queue.add(params.startY * width + params.startX);
 
+  // Tracks pixels visited by the main fill so the same edge pixel isn't
+  // queued and blended more than once from different directions.
+  final processedMask = Uint8List(width * height);
+
   while (queue.isNotEmpty) {
     final pos = queue.removeLast();
+    if (processedMask[pos] == 1) continue;
+    processedMask[pos] = 1;
+
     final x = pos % width;
     final y = pos ~/ width;
-
     if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
     final idx = pos * 4;
-    if (!_withinTolerance(
-      pixels[idx],
-      pixels[idx + 1],
-      pixels[idx + 2],
-      pixels[idx + 3],
-      targetR,
-      targetG,
-      targetB,
-      targetA,
-      params.tolerance,
-    )) {
-      continue;
-    }
+    final r = pixels[idx];
+    final g = pixels[idx + 1];
+    final b = pixels[idx + 2];
+    final a = pixels[idx + 3];
 
-    // Check the pixel hasn't already been filled in a previous iteration.
-    if (pixels[idx] == fillR &&
-        pixels[idx + 1] == fillG &&
-        pixels[idx + 2] == fillB &&
-        pixels[idx + 3] == fillA) {
+    if (!_withinTolerance(r, g, b, a, targetR, targetG, targetB, targetA,
+        params.tolerance)) {
+      // Out of tolerance: an anti-aliased edge pixel. Blend it toward the
+      // fill color by how close it already is to the target, rather than
+      // either skipping it (leaves a gap) or fully filling it (bleeds).
+      _blendEdgePixel(
+        pixels: pixels,
+        idx: idx,
+        r: r,
+        g: g,
+        b: b,
+        a: a,
+        targetR: targetR,
+        targetG: targetG,
+        targetB: targetB,
+        targetA: targetA,
+        fillR: fillR,
+        fillG: fillG,
+        fillB: fillB,
+        fillA: fillA,
+      );
       continue;
     }
 
@@ -103,6 +131,48 @@ Uint8List floodFill(FloodFillParams params) {
 
   return pixels;
 }
+
+// Blends [idx] toward the fill color by a factor derived from how close its
+// original channels were to the target color. Uses the channel with the
+// LEAST similarity to target (i.e. the worst-case channel) so a pixel that's
+// only close to target in one channel but far in another — which would
+// otherwise read as "mostly target" — is correctly treated as mostly
+// boundary instead.
+void _blendEdgePixel({
+  required Uint8List pixels,
+  required int idx,
+  required int r,
+  required int g,
+  required int b,
+  required int a,
+  required int targetR,
+  required int targetG,
+  required int targetB,
+  required int targetA,
+  required int fillR,
+  required int fillG,
+  required int fillB,
+  required int fillA,
+}) {
+  final diffR = (r - targetR).abs();
+  final diffG = (g - targetG).abs();
+  final diffB = (b - targetB).abs();
+  final diffA = (a - targetA).abs();
+  final worstDiff = [diffR, diffG, diffB, diffA].reduce((a, b) => a > b ? a : b);
+
+  // 0.0 = as far from target as a channel can be (pure boundary, untouched).
+  // 1.0 = identical to target (would already have passed tolerance above).
+  final closeness = 1.0 - (worstDiff / 255.0);
+  if (closeness <= 0.0) return;
+
+  pixels[idx] = _lerp(r, fillR, closeness);
+  pixels[idx + 1] = _lerp(g, fillG, closeness);
+  pixels[idx + 2] = _lerp(b, fillB, closeness);
+  pixels[idx + 3] = _lerp(a, fillA, closeness);
+}
+
+int _lerp(int from, int to, double t) =>
+    (from + (to - from) * t).round().clamp(0, 255);
 
 bool _withinTolerance(
   int r,

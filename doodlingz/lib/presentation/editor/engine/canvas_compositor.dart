@@ -162,11 +162,12 @@ class CanvasCompositor {
   // connected path.
   static void _drawSpray(ui.Canvas canvas, Stroke stroke) {
     final paint = Paint()
-      ..color = stroke.color
+      ..color = stroke.color.withValues(alpha: stroke.color.a * 0.4)
       ..style = PaintingStyle.fill;
 
     for (final point in stroke.points) {
-      canvas.drawCircle(point, 2.5, paint);
+      // Drop radius to 1.2 for a finer mist
+      canvas.drawCircle(point, 1.2, paint);
     }
   }
 

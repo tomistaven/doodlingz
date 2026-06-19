@@ -33,7 +33,11 @@ class DrawingCanvasPainter extends CustomPainter {
       image.height.toDouble(),
     );
     final dst = Offset.zero & size;
-    canvas.drawImageRect(image, src, dst, Paint());
+    
+    // Smooths out the sub-pixel aliasing jump when the vector is rasterized
+    final paint = Paint()..filterQuality = FilterQuality.high;
+    
+    canvas.drawImageRect(image, src, dst, paint);
   }
 
   void _drawOverlay(Canvas canvas, Size size, Stroke stroke) {
@@ -78,11 +82,12 @@ class DrawingCanvasPainter extends CustomPainter {
   // as individual filled circles rather than a connected path.
   void _paintSpray(Canvas canvas, Stroke stroke) {
     final paint = Paint()
-      ..color = stroke.color
+      ..color = stroke.color.withValues(alpha: stroke.color.a * 0.4)
       ..style = PaintingStyle.fill;
 
     for (final point in stroke.points) {
-      canvas.drawCircle(point, 2.5, paint);
+      // Drop radius to 1.2 for a finer mist
+      canvas.drawCircle(point, 1.2, paint);
     }
   }
 
