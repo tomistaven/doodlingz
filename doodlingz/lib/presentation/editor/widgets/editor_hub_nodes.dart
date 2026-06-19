@@ -228,15 +228,15 @@ mixin HubNodes on State<EditorHub> {
       case DrawingTool.brush:
         return Icons.brush;
       case DrawingTool.highlighter:
-        return Icons.edit;
+        return Icons.border_color; // Looks like a marker/highlighter tip
       case DrawingTool.spray:
-        return Icons.blur_on;
+        return Icons.lens_blur; // Actual spray can, much better than blur_on
       case DrawingTool.eraser:
-        return Icons.auto_fix_normal;
+        return Icons.backspace_outlined; // An actual block eraser instead of a broom
       case DrawingTool.fill:
         return Icons.format_color_fill;
       case DrawingTool.line:
-        return Icons.remove;
+        return Icons.horizontal_rule; // A proper line, not a math minus symbol
       case DrawingTool.rectangle:
         return Icons.crop_square;
       case DrawingTool.ellipse:
