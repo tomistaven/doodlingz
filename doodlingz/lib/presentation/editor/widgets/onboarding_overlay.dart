@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/constants/ui_constants.dart';
 
@@ -158,8 +159,8 @@ class _PageTwoContentState extends State<_PageTwoContent> {
           children: const [
             _HintRow(icon: Icons.brush, text: 'Brush: Freehand drawing'),
             _HintRow(icon: Icons.border_color, text: 'Highlighter: Semi-transparent freehand'),
-            _HintRow(icon: Icons.lens_blur, text: 'Spray: Airbrush effect'),
-            _HintRow(icon: Icons.backspace_outlined, text: 'Eraser: Restores canvas to white'),
+            _HintRow(icon: Icons.grain, text: 'Spray: Airbrush effect'),
+            _HintRow(icon: Symbols.ink_eraser, text: 'Eraser: Restores canvas to white'),
             _HintRow(icon: Icons.format_color_fill, text: 'Fill: Flood-fills a region'),
             _HintRow(icon: Icons.horizontal_rule, text: 'Line: Straight line'),
             _HintRow(icon: Icons.crop_square, text: 'Rectangle: Drag to draw a rectangle'),

@@ -1,6 +1,7 @@
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../domain/entities/drawing_tool.dart';
@@ -228,15 +229,15 @@ mixin HubNodes on State<EditorHub> {
       case DrawingTool.brush:
         return Icons.brush;
       case DrawingTool.highlighter:
-        return Icons.border_color; // Looks like a marker/highlighter tip
+        return Icons.border_color;
       case DrawingTool.spray:
-        return Icons.lens_blur; // Actual spray can, much better than blur_on
+        return Icons.grain;
       case DrawingTool.eraser:
-        return Icons.backspace_outlined; // An actual block eraser instead of a broom
+        return Symbols.ink_eraser;
       case DrawingTool.fill:
         return Icons.format_color_fill;
       case DrawingTool.line:
-        return Icons.horizontal_rule; // A proper line, not a math minus symbol
+        return Icons.horizontal_rule;
       case DrawingTool.rectangle:
         return Icons.crop_square;
       case DrawingTool.ellipse:
