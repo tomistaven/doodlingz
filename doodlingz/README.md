@@ -81,6 +81,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | **Multi-select delete** | Long-press a gallery tile to enter selection mode and delete several drawings at once |
 | **Onboarding overlay** | Two-page guide shown on first launch, replayable any time from Settings |
 | **New / clear canvas** | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
+| **Splash screen** | Brief branded launch screen — app icon, wordmark, and a loading indicator — shown before the editor opens |
 
 ---
 
@@ -94,11 +95,12 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | `shared_preferences` | Persists theme mode, hub handedness, and the onboarding setting |
 | `path_provider` | Resolves the app documents directory for PNG storage |
 | `intl` | `DateFormat` for timestamp-based filenames |
-| `google_fonts` | Inter typeface |
+| `google_fonts` | Mansalva for body text, Lacquer for the app-bar wordmark |
 | `flex_color_picker` | Color wheel dialog with hex input and opacity slider |
 | `gal` | Exports a drawing into the device photo gallery |
 | `image_picker` | Imports a photo from the device gallery onto the canvas |
 | `material_symbols_icons` | Supplies the eraser glyph (`Symbols.ink_eraser`), absent from the standard Material icon set |
+| `flutter_launcher_icons` *(dev)* | Generates the Android adaptive launcher icon from a single source asset |
 
 ---
 
@@ -261,3 +263,11 @@ A fixed toolbar would permanently shrink the drawable area. The radial hub only 
 ### Eraser as a white brush
 
 The eraser restores pixels to the canvas's fixed white color rather than using a transparency erase. This matches the requirement to restore the affected area to the default color and keeps the raster buffer — and exported PNGs — opaque.
+
+### Hand-drawn typography, applied per-slot rather than theme-wide
+
+The app uses Mansalva for body text and Lacquer for the app-bar wordmark — both hand-drawn Google Fonts that suit a drawing app better than a standard UI typeface. The body size increase (`+2`) is applied with an explicit `copyWith` on each `TextTheme` slot rather than `TextTheme.apply(fontSizeDelta: ...)`. The latter throws a runtime assertion if any individual slot's `fontSize` is null — a state `flutter analyze` cannot see, since it only surfaces when that specific style is actually built and rendered. The per-slot rebuild guarantees a concrete `fontSize` on every slot, so the assertion can never trigger regardless of which slots Flutter or `google_fonts` leave unset.
+
+### Editor overflow actions as a bottom sheet, not a popup menu
+
+New drawing and Clear canvas were originally a `PopupMenuButton` in the app bar. It was replaced with a `showModalBottomSheet`, matching the save/export/clear confirmation pattern used everywhere else in the editor. Beyond consistency, the bottom sheet's own surface color visibly separates it from the screen behind it in dark mode; the popup menu relied on a modal scrim that barely dimmed an already-dark app bar, making the menu look like it was layered directly on the bar instead of a distinct surface.

@@ -34,6 +34,12 @@ The project uses Flutter Clean Architecture with three layers plus a shared core
 
 A note on layer placement: the raster engine (`canvas_compositor.dart`, `flood_fill.dart`, `coordinate_mapper.dart`, `stroke.dart`) lives under `presentation/editor/engine/` rather than in core. It is `dart:ui` rendering code tied to the editor screen, not app-wide configuration, so it sits with the feature that owns it.
 
+### Typography
+
+`AppTheme` builds its base `TextTheme` from `GoogleFonts.mansalvaTextTheme()`, then rebuilds every named slot with an explicit `copyWith(fontSize: ...)` to apply a uniform `+2` size increase, rather than calling `TextTheme.apply(fontSizeDelta: 2)` on the whole theme. `TextStyle.apply()` asserts at runtime if a style's `fontSize` is null while a nonzero `fontSizeFactor` or `fontSizeDelta` is supplied — `flutter analyze` cannot catch this, since the assertion only fires when that specific `TextStyle` is actually built and rendered. The per-slot `copyWith`, with a Material-default fallback (`?? 14`, etc.) for any slot that comes through null, guarantees every slot carries a concrete `fontSize` so the assertion path is structurally unreachable.
+
+`AppBarThemeData.titleTextStyle` is set separately to `GoogleFonts.lacquer()`, so every app-bar title (`Doodlingz`, `Settings`, the gallery title) picks up the wordmark font from one place without per-screen styling.
+
 ---
 
 ## The Raster Pipeline
@@ -201,7 +207,9 @@ The task requires 5 steps; `maxHistorySteps` is 20. The headroom is deliberately
 
 ## Editor Load Path and State Management
 
-The editor lives in a tab inside `AppShell`, alongside the gallery and settings. The challenge is letting the gallery open a drawing **into that same editor tab** without pushing a second `EditorScreen` onto the navigator — two live editors would mean two canvas controllers and two undo stacks.
+The editor lives in a tab inside `AppShell`, alongside the gallery and settings. `AppShell` is not the app's first screen — `main.dart` sets `MaterialApp.home` to `SplashScreen`, which shows the app icon, wordmark, and a loading indicator for a fixed duration before calling `Navigator.pushReplacement` to `AppShell`. The delay is a deliberate branding pause rather than a wait on real work: `initDependencies()` in `main()` already completes, awaited, before `runApp()` is called, so by the time `SplashScreen` exists there is nothing left in flight to wait on. `pushReplacement` (not a plain push) means there is no back-stack entry leading to the splash screen.
+
+The challenge is letting the gallery open a drawing **into that same editor tab** without pushing a second `EditorScreen` onto the navigator — two live editors would mean two canvas controllers and two undo stacks.
 
 ### EditorCubit as an app-scoped singleton
 
@@ -264,7 +272,7 @@ All registrations are in `lib/injection_container.dart`, run in `main()` before 
 
 ## Key Constants
 
-All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constants.dart`); storage and filename rules live in `AppConstants`.
+All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constants.dart`); storage and filename rules live in `AppConstants`. UI layout, animation, and timing for everything outside the canvas — the hub, overlays, and the splash screen — lives in `UiConstants` (`lib/core/constants/ui_constants.dart`).
 
 | Constant | Value | What it controls |
 | --- | --- | --- |
@@ -277,4 +285,55 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `maxHistorySteps` | 20 | Undo depth cap (task floor is 5; capped for memory) |
 | `fillColorTolerance` | 32 | Per-channel match tolerance before edge blending kicks in |
 | `presetColors` | 8 colors | Quick-access palette in the radial swatch menu |
+| `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |
+
+`UiConstants` (`lib/core/constants/ui_constants.dart`) holds layout, animation, and styling values for widgets outside the canvas — the hub, overlays, and splash screen. Tool and raster tuning belongs in `CanvasConstants` above; this is everything else.
+
+| Constant | Value | What it controls |
+| --- | --- | --- |
+| `hubHandleSize` | 64 | Diameter of the main hub handle button |
+| `hubNodeSize` | 44 | Diameter of each arc node button |
+| `hubEdgeMargin` | 24 | Distance from the screen edge to the hub handle |
+| `hubArcRadiusInner` | 105 | Inner arc row radius when two rows are shown |
+| `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown |
+| `hubArcRadiusOuter` | 190 | Outer arc row radius when two rows are shown |
+| `hubArcDuration` | 280ms | Hub open/close arc animation duration |
+| `hubHandleFadeDuration` | 150ms | Handle icon opacity fade duration |
+| `hubSurface` | `0xFF242424` | Hub node and handle interior color; hardcoded so it never themes to white |
+| `hubScrimOpacity` | 0.08 | Scrim opacity behind open hub arc nodes |
+| `hubIconOpacity` | 0.9 | Hub node icon opacity |
+| `hubColorNodeBorderOpacity` | 0.85 | Border opacity for the color category node |
+| `overlayAnimDuration` | 300ms | Onboarding overlay scale+fade animation duration |
+| `overlayScrimOpacity` | 0.55 | Peak scrim opacity behind the onboarding card |
+| `overlayCardRadius` | 16 | Onboarding card corner radius |
+| `overlayCardPadding` | `EdgeInsets.fromLTRB(24, 28, 24, 20)` | Padding inside the onboarding card |
+| `overlayHorizontalMargin` | 32 | Horizontal margin between the onboarding card and screen edges |
+| `overlayToolListHeight` | 240 | Fixed height of the tool-reference list on page 2 of the overlay |
+| `splashDuration` | 1400ms | Time the splash screen is shown before navigating to `AppShell` |
+| `splashIconSize` | 96 | Width and height of the splash icon mark |
+
+### UiConstants
+
+| Constant | Value | What it controls |
+| --- | --- | --- |
+| `hubHandleSize` | 64 | Diameter of the main hub handle button |
+| `hubNodeSize` | 44 | Diameter of each arc node button |
+| `hubEdgeMargin` | 24 | Distance from the screen/safe-area edge to the hub handle |
+| `hubArcRadiusInner` | 105 | Inner arc row radius when two rows are shown |
+| `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown |
+| `hubArcRadiusOuter` | 190 | Outer arc row radius when two rows are shown |
+| `hubArcDuration` | 280ms | Hub open/close arc animation duration |
+| `hubHandleFadeDuration` | 150ms | Handle icon opacity fade duration |
+| `hubSurface` | `0xFF242424` | Hub node/handle background; hardcoded so it never themes to white |
+| `hubScrimOpacity` | 0.08 | Scrim opacity behind open hub arc nodes |
+| `hubIconOpacity` | 0.9 | Hub node icon opacity |
+| `hubColorNodeBorderOpacity` | 0.85 | Border opacity for the colour category node |
+| `overlayAnimDuration` | 300ms | Onboarding overlay scale+fade animation duration |
+| `overlayScrimOpacity` | 0.55 | Peak scrim opacity behind the onboarding card |
+| `overlayCardRadius` | 16 | Corner radius of the onboarding card |
+| `overlayCardPadding` | `24, 28, 24, 20` | Padding inside the onboarding card (LTRB) |
+| `overlayHorizontalMargin` | 32 | Horizontal margin between the onboarding card and screen edges |
+| `overlayToolListHeight` | 240 | Fixed height of the tool-reference list on overlay page 2 |
+| `splashDuration` | 1400ms | Time the splash screen shows before navigating to `AppShell` |
+| `splashIconSize` | 96 | Width and height of the splash icon mark |
 | `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |
