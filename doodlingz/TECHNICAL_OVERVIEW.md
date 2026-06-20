@@ -274,6 +274,8 @@ All registrations are in `lib/injection_container.dart`, run in `main()` before 
 
 All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constants.dart`); storage and filename rules live in `AppConstants`. UI layout, animation, and timing for everything outside the canvas — the hub, overlays, and the splash screen — lives in `UiConstants` (`lib/core/constants/ui_constants.dart`).
 
+### CanvasConstants
+
 | Constant | Value | What it controls |
 | --- | --- | --- |
 | `rasterShortSide` / `rasterLongSide` | 810 / 1080 | Fixed 3:4 raster buffer dimensions |
@@ -286,6 +288,8 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `fillColorTolerance` | 32 | Per-channel match tolerance before edge blending kicks in |
 | `presetColors` | 8 colors | Quick-access palette in the radial swatch menu |
 | `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |
+
+### UiConstants
 
 `UiConstants` (`lib/core/constants/ui_constants.dart`) holds layout, animation, and styling values for widgets outside the canvas — the hub, overlays, and splash screen. Tool and raster tuning belongs in `CanvasConstants` above; this is everything else.
 
@@ -311,29 +315,3 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `overlayToolListHeight` | 240 | Fixed height of the tool-reference list on page 2 of the overlay |
 | `splashDuration` | 1400ms | Time the splash screen is shown before navigating to `AppShell` |
 | `splashIconSize` | 96 | Width and height of the splash icon mark |
-
-### UiConstants
-
-| Constant | Value | What it controls |
-| --- | --- | --- |
-| `hubHandleSize` | 64 | Diameter of the main hub handle button |
-| `hubNodeSize` | 44 | Diameter of each arc node button |
-| `hubEdgeMargin` | 24 | Distance from the screen/safe-area edge to the hub handle |
-| `hubArcRadiusInner` | 105 | Inner arc row radius when two rows are shown |
-| `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown |
-| `hubArcRadiusOuter` | 190 | Outer arc row radius when two rows are shown |
-| `hubArcDuration` | 280ms | Hub open/close arc animation duration |
-| `hubHandleFadeDuration` | 150ms | Handle icon opacity fade duration |
-| `hubSurface` | `0xFF242424` | Hub node/handle background; hardcoded so it never themes to white |
-| `hubScrimOpacity` | 0.08 | Scrim opacity behind open hub arc nodes |
-| `hubIconOpacity` | 0.9 | Hub node icon opacity |
-| `hubColorNodeBorderOpacity` | 0.85 | Border opacity for the colour category node |
-| `overlayAnimDuration` | 300ms | Onboarding overlay scale+fade animation duration |
-| `overlayScrimOpacity` | 0.55 | Peak scrim opacity behind the onboarding card |
-| `overlayCardRadius` | 16 | Corner radius of the onboarding card |
-| `overlayCardPadding` | `24, 28, 24, 20` | Padding inside the onboarding card (LTRB) |
-| `overlayHorizontalMargin` | 32 | Horizontal margin between the onboarding card and screen edges |
-| `overlayToolListHeight` | 240 | Fixed height of the tool-reference list on overlay page 2 |
-| `splashDuration` | 1400ms | Time the splash screen shows before navigating to `AppShell` |
-| `splashIconSize` | 96 | Width and height of the splash icon mark |
-| `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |
