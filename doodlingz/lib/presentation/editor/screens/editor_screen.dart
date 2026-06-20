@@ -180,32 +180,9 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                 icon: const Icon(Icons.ios_share),
                 onPressed: export,
               ),
-              PopupMenuButton<_EditorMenu>(
-                position: PopupMenuPosition.under,
-                onSelected: (item) {
-                  switch (item) {
-                    case _EditorMenu.newDrawing:
-                      newDrawing();
-                    case _EditorMenu.clear:
-                      clear();
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: _EditorMenu.newDrawing,
-                    child: ListTile(
-                      leading: Icon(Icons.note_add_outlined),
-                      title: Text('New drawing'),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _EditorMenu.clear,
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline),
-                      title: Text('Clear canvas'),
-                    ),
-                  ),
-                ],
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => _showEditorMenu(context),
               ),
             ],
           ),
@@ -271,8 +248,29 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
       },
     );
   }
+  Future<void> _showEditorMenu(BuildContext context) async {
+    final action = await showModalBottomSheet<VoidCallback>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.note_add_outlined),
+              title: const Text('New drawing'),
+              onTap: () => Navigator.of(context).pop(newDrawing),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Clear canvas'),
+              onTap: () => Navigator.of(context).pop(clear),
+            ),
+          ],
+        ),
+      ),
+    );
+    action?.call();
+  }
 }
-
-enum _EditorMenu { newDrawing, clear }
 
 enum _LoadChoice { cancel, discard, save }
