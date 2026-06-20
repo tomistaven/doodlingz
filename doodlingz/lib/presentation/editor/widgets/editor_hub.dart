@@ -126,6 +126,39 @@ class _EditorHubState extends State<EditorHub>
     final padding = MediaQuery.paddingOf(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The arc's default radii assume portrait's generous body height. In
+        // landscape the body is much shorter, so the outer-row nodes can run
+        // past the top of the body and get clipped under the app bar. Scale
+        // the radii down only when the default reach wouldn't fit; portrait
+        // is unaffected since it always has headroom to spare.
+        //
+        // Curves.easeOutBack overshoots its target by ~8% mid-animation
+        // before settling, so the open animation briefly extends past the
+        // node's final resting radius. Budget for that overshoot here, or
+        // the topmost node clips for a frame even though it fits at rest.
+        const double openAnimationOvershoot = 1.08;
+        final handleBottomMargin = _baseMargin + padding.bottom;
+        final maxReach = handleBottomMargin +
+            _handleSize / 2 +
+            UiConstants.hubArcRadiusOuter * openAnimationOvershoot +
+            _nodeSize / 2;
+        final radiusScale = constraints.maxHeight < maxReach
+            ? (constraints.maxHeight / maxReach).clamp(0.5, 1.0)
+            : 1.0;
+
+        return _buildHub(context, padding, screenWidth, radiusScale);
+      },
+    );
+  }
+
+  Widget _buildHub(
+    BuildContext context,
+    EdgeInsets padding,
+    double screenWidth,
+    double radiusScale,
+  ) {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settings) {
         final hubOnRight = settings.hubOnRight;
@@ -168,6 +201,7 @@ class _EditorHubState extends State<EditorHub>
                         cx: handleCentreX,
                         cy: handleCentreY,
                         hubOnRight: hubOnRight,
+                        radiusScale: radiusScale,
                       ),
                     _buildHandle(
                       state: state,
@@ -190,6 +224,7 @@ class _EditorHubState extends State<EditorHub>
     required double cx,
     required double cy,
     required bool hubOnRight,
+    required double radiusScale,
   }) {
     final nodes = _nodeContentsForLevel(state);
     final count = nodes.length;
@@ -207,6 +242,7 @@ class _EditorHubState extends State<EditorHub>
           cx: cx,
           cy: cy,
           hubOnRight: hubOnRight,
+          radiusScale: radiusScale,
           child: nodes[i],
         ),
     ];
@@ -220,6 +256,7 @@ class _EditorHubState extends State<EditorHub>
     required double cx,
     required double cy,
     required bool hubOnRight,
+    required double radiusScale,
     required Widget child,
   }) {
     final bool useTwoRows = count > 5;
@@ -228,9 +265,10 @@ class _EditorHubState extends State<EditorHub>
     final int rowCount = isOuter ? (count - innerCount) : innerCount;
     final int rowIndex = isOuter ? index - innerCount : index;
 
-    final double targetRadius = useTwoRows
-        ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
-        : UiConstants.hubArcRadiusSingle;
+    final double targetRadius = (useTwoRows
+            ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
+            : UiConstants.hubArcRadiusSingle) *
+        radiusScale;
     final double distance = targetRadius * t;
 
     const double minAngle = math.pi / 36;
@@ -339,7 +377,7 @@ class _EditorHubState extends State<EditorHub>
               ],
             ),
             child: AnimatedOpacity(
-              opacity: _isOpen ? 1.0 : 0.15,
+              opacity: _isOpen ? 1.0 : 0.9,
               duration: UiConstants.hubHandleFadeDuration,
               child: Container(
                 decoration: const BoxDecoration(
