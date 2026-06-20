@@ -181,6 +181,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                 onPressed: export,
               ),
               PopupMenuButton<_EditorMenu>(
+                position: PopupMenuPosition.under,
                 onSelected: (item) {
                   switch (item) {
                     case _EditorMenu.newDrawing:
