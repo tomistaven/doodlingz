@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// Canvas and tool dimensions belong in [CanvasConstants]. These constants
 /// cover the editor hub, overlays, and shared chrome surfaces.
 abstract final class UiConstants {
-  // ---- Hub geometry -------------------------------------------------------
+  // Hub geometry
 
   /// Diameter of the main hub handle button.
   static const double hubHandleSize = 64;
@@ -25,7 +25,7 @@ abstract final class UiConstants {
   /// Radius of the outer arc row when two rows are shown.
   static const double hubArcRadiusOuter = 190;
 
-  // ---- Hub animation ------------------------------------------------------
+  // Hub animation
 
   /// Duration of the hub open/close arc animation.
   static const Duration hubArcDuration = Duration(milliseconds: 280);
@@ -33,8 +33,7 @@ abstract final class UiConstants {
   /// Duration of the handle icon opacity fade.
   static const Duration hubHandleFadeDuration = Duration(milliseconds: 150);
 
-  // ---- Hub colours --------------------------------------------------------
-
+  //  Hub colours
   /// Background colour for hub nodes and the handle interior. Dark chrome,
   /// matches the app surface colour but hardcoded so it never themes to white.
   static const Color hubSurface = Color(0xFF242424);
@@ -48,7 +47,7 @@ abstract final class UiConstants {
   /// Border opacity for the colour category node.
   static const double hubColorNodeBorderOpacity = 0.85;
 
-  // ---- Overlay ------------------------------------------------------------
+  // Overlay
 
   /// Duration of the onboarding overlay scale+fade animation.
   static const Duration overlayAnimDuration = Duration(milliseconds: 300);
@@ -68,4 +67,12 @@ abstract final class UiConstants {
 
   /// Fixed height of the tool-reference list on page 2 of the overlay.
   static const double overlayToolListHeight = 240;
+
+  // Splash 
+
+  /// Total time the splash screen is shown before navigating to [AppShell].
+  static const Duration splashDuration = Duration(milliseconds: 1400);
+
+  /// Width and height of the splash icon mark.
+  static const double splashIconSize = 96;
 }

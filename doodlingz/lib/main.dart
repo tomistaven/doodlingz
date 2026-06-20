@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'injection_container.dart';
 import 'presentation/settings/cubit/settings_cubit.dart';
 import 'presentation/settings/cubit/settings_state.dart';
-import 'presentation/shell/app_shell.dart';
+import 'presentation/splash/screens/splash_screen.dart';
 import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -29,7 +29,7 @@ class DoodlingzApp extends StatelessWidget {
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: settings.themeMode,
-            home: const AppShell(),
+            home: const SplashScreen(),
           );
         },
       ),
