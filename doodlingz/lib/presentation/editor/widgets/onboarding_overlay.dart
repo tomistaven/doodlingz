@@ -158,7 +158,7 @@ class _PageTwoContentState extends State<_PageTwoContent> {
           shrinkWrap: true,
           children: const [
             _HintRow(icon: Icons.brush, text: 'Brush: Freehand drawing'),
-            _HintRow(icon: Icons.border_color, text: 'Highlighter: Semi-transparent freehand'),
+            _HintRow(icon: Symbols.format_ink_highlighter, text: 'Highlighter: Semi-transparent freehand'),
             _HintRow(icon: Icons.grain, text: 'Spray: Airbrush effect'),
             _HintRow(icon: Symbols.ink_eraser, text: 'Eraser: Restores canvas to white'),
             _HintRow(icon: Icons.format_color_fill, text: 'Fill: Flood-fills a region'),

@@ -177,7 +177,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                 onPressed: save,
               ),
               IconButton(
-                icon: const Icon(Icons.ios_share),
+                icon: const Icon(Icons.save_alt),
                 onPressed: export,
               ),
               IconButton(

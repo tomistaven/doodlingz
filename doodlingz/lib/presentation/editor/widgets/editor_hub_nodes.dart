@@ -229,7 +229,7 @@ mixin HubNodes on State<EditorHub> {
       case DrawingTool.brush:
         return Icons.brush;
       case DrawingTool.highlighter:
-        return Icons.border_color;
+        return Symbols.format_ink_highlighter;
       case DrawingTool.spray:
         return Icons.grain;
       case DrawingTool.eraser:

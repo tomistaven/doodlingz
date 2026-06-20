@@ -144,7 +144,7 @@ mixin EditorActions on State<EditorScreen> {
               ),
             if (isDirty)
               ListTile(
-                leading: const Icon(Icons.ios_share),
+                leading: const Icon(Icons.save_alt),
                 title: const Text('Export anyway'),
                 subtitle: const Text('Exports without saving.'),
                 onTap: () =>
@@ -152,7 +152,7 @@ mixin EditorActions on State<EditorScreen> {
               ),
             if (!isDirty)
               ListTile(
-                leading: const Icon(Icons.ios_share),
+                leading: const Icon(Icons.save_alt),
                 title: const Text('Export to device gallery'),
                 onTap: () =>
                     Navigator.of(context).pop(_ExportChoice.exportOnly),
