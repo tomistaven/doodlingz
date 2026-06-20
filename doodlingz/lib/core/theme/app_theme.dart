@@ -45,7 +45,7 @@ abstract final class AppTheme {
     required Color onSurface,
     required Color onSurfaceVariant,
   }) {
-    final base = GoogleFonts.interTextTheme(
+    final base = GoogleFonts.mansalvaTextTheme(
       brightness == Brightness.dark
           ? ThemeData.dark().textTheme
           : ThemeData.light().textTheme,
@@ -72,6 +72,11 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: scaffold,
       textTheme: base,
       iconTheme: IconThemeData(color: onSurfaceVariant, size: 24),
+      // Lacquer wordmark for app-bar titles; body text stays on Mansalva.
+      // fontSize 22 is the tuning knob for the editor "Doodlingz" overflow.
+      appBarTheme: AppBarThemeData(
+        titleTextStyle: GoogleFonts.lacquer(fontSize: 22, color: onSurface),
+      ),
       // CardThemeData constructor — avoids the Flutter 3.41 CardTheme type error.
       cardTheme: CardThemeData(
         color: surface,
