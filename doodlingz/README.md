@@ -116,7 +116,7 @@ Most reviewers should use the pre-built APK in the Reviewer Guide below. These s
 ### Steps
 
 ```bash
-git clone [repo URL]
+git clone
 cd doodlingz
 flutter pub get
 flutter run
