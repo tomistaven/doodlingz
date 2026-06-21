@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'injection_container.dart';
 import 'presentation/settings/cubit/settings_cubit.dart';
@@ -9,6 +10,10 @@ import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Force Google Fonts to use the bundled assets only to guarantee offline support
+  GoogleFonts.config.allowRuntimeFetching = false;
+  
   await initDependencies();
   runApp(const DoodlingzApp());
 }
