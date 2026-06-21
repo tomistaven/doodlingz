@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/canvas_constants.dart';
-import '../../../domain/entities/drawing_tool.dart';
 import 'flood_fill.dart';
 import 'stroke.dart';
+import 'stroke_renderer.dart';
 
 /// Composites drawing operations onto an immutable [ui.Image] raster buffer.
 ///
@@ -87,7 +87,7 @@ class CanvasCompositor {
     final canvas = ui.Canvas(recorder);
 
     canvas.drawImage(current, Offset.zero, Paint());
-    _drawStroke(canvas, stroke);
+    paintStroke(canvas, stroke);
 
     final picture = recorder.endRecording();
     return picture.toImage(current.width, current.height);
@@ -99,7 +99,7 @@ class CanvasCompositor {
     final canvas = ui.Canvas(recorder);
 
     canvas.drawImage(current, Offset.zero, Paint());
-    _drawShape(canvas, stroke);
+    paintShape(canvas, stroke);
 
     final picture = recorder.endRecording();
     return picture.toImage(current.width, current.height);
@@ -150,102 +150,11 @@ class CanvasCompositor {
     return byteData!.buffer.asUint8List();
   }
 
-  static void _drawStroke(ui.Canvas canvas, Stroke stroke) {
-    if (stroke.points.isEmpty) return;
-
-    if (stroke.drawingTool == DrawingTool.spray) {
-      _drawSpray(canvas, stroke);
-      return;
-    }
-
-    final paint = Paint()
-      ..color = stroke.color
-      ..strokeWidth = stroke.size
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    if (stroke.isHighlighter) {
-      paint.blendMode = BlendMode.multiply;
-      paint.color = stroke.color.withValues(alpha: 0.4);
-    }
-
-    final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
-    for (final point in stroke.points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  // Spray points are random dots — commit each as a filled circle, not a
-  // connected path.
-  static void _drawSpray(ui.Canvas canvas, Stroke stroke) {
-    final paint = Paint()
-      ..color = stroke.color.withValues(alpha: stroke.color.a * 0.4)
-      ..style = PaintingStyle.fill;
-
-    for (final point in stroke.points) {
-      // Drop radius to 1.2 for a finer mist
-      canvas.drawCircle(point, 1.2, paint);
-    }
-  }
-
-  static void _drawShape(ui.Canvas canvas, Stroke stroke) {
-    if (stroke.points.length < 2) return;
-
-    final paint = Paint()
-      ..color = stroke.color
-      ..strokeWidth = stroke.size
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final start = stroke.points.first;
-    final end = stroke.points.last;
-    final rect = Rect.fromPoints(start, end);
-
-    switch (stroke.tool) {
-      case _ShapeTool.line:
-        canvas.drawLine(start, end, paint);
-      case _ShapeTool.rectangle:
-        canvas.drawRect(rect, paint);
-      case _ShapeTool.ellipse:
-        canvas.drawOval(rect, paint);
-      case _ShapeTool.triangle:
-        final path = Path()
-          ..moveTo(rect.topCenter.dx, rect.topCenter.dy)
-          ..lineTo(rect.bottomLeft.dx, rect.bottomLeft.dy)
-          ..lineTo(rect.bottomRight.dx, rect.bottomRight.dy)
-          ..close();
-        canvas.drawPath(path, paint);
-    }
-  }
-
   // Packs a Flutter [Color] into 0xAARRGGBB int for the flood fill isolate.
   static int _colorToFillInt(Color color) {
     return ((color.a * 255.0).round().clamp(0, 255) << 24) |
         ((color.r * 255.0).round().clamp(0, 255) << 16) |
         ((color.g * 255.0).round().clamp(0, 255) << 8) |
         (color.b * 255.0).round().clamp(0, 255);
-  }
-}
-
-/// Internal tool discriminator for shape drawing — avoids importing
-/// DrawingTool into the compositor and keeping the dependency clean.
-enum _ShapeTool { line, rectangle, ellipse, triangle }
-
-extension _StrokeShapeTool on Stroke {
-  _ShapeTool get tool {
-    switch (drawingTool.name) {
-      case 'line':
-        return _ShapeTool.line;
-      case 'rectangle':
-        return _ShapeTool.rectangle;
-      case 'ellipse':
-        return _ShapeTool.ellipse;
-      case 'triangle':
-        return _ShapeTool.triangle;
-      default:
-        return _ShapeTool.line;
-    }
   }
 }
