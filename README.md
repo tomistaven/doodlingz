@@ -77,7 +77,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | **Redo** | Full redo stack — restores steps undone in the current session |
 | **Left-handed mode** | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
 | **Export to device gallery** | Saves the drawing into a `Doodlingz` album in the device photo gallery (via `gal`) |
-| **Import an image** | Pick a photo from the device gallery and open it on the canvas as a new drawing |
+| **Import an image** | Pick a photo from the device gallery and open it on the canvas. The canvas reshapes to the image's aspect ratio (no crop, no distortion) so any photo — wide, tall, or square — imports cleanly |
 | **Multi-select delete** | Long-press a gallery tile to enter selection mode and delete several drawings at once |
 | **Onboarding overlay** | Two-page guide shown on first launch, replayable any time from Settings |
 | **New / clear canvas** | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
@@ -117,7 +117,7 @@ Most reviewers should use the pre-built APK in the Reviewer Guide below. These s
 
 ```bash
 git clone
-cd doodlingz
+cd pixel-painter
 flutter pub get
 flutter run
 ```
@@ -226,7 +226,7 @@ Long-press a gallery tile to enter selection mode, tap any number of drawings to
 
 ### Importing an image
 
-From the Gallery tab, import a photo from the device gallery. It opens on the canvas as a new drawing (saving it creates a new file rather than altering the original photo).
+From the Gallery tab, import a photo from the device gallery. It opens on the canvas as a new drawing. The canvas takes the photo's aspect ratio — a wide photo gives a wide canvas, a tall one a tall canvas — so the whole image is shown without cropping or stretching. Very large photos are scaled down to keep the canvas within its pixel budget. Saving an imported image creates a new file rather than altering the original photo.
 
 ### Export to device gallery
 
@@ -240,9 +240,13 @@ Open the Settings tab to choose system, light, or dark theme, toggle **Move tool
 
 ## Design Decisions and Challenges
 
-### Fixed raster buffer instead of a resizing canvas
+### Budget-bounded raster buffer
 
-The drawing buffer is fixed at 810×1080 pixels regardless of device screen size or orientation, and the display layer scales it to fit. Brush sizes, fill operations, and undo snapshots are therefore consistent across devices — a "medium" brush is the same number of raster pixels everywhere. A canvas that reshaped to match the screen would change stroke proportions and invalidate undo history on rotation.
+Drawing happens against a pixel buffer whose *area* is capped (810×1080 = 874,800 pixels) but whose *shape* adapts: a blank new drawing fills the editor area so it doesn't letterbox, and an imported image keeps its own aspect ratio. The display layer scales that buffer to fit with a single uniform scale, never separate per-axis scales that would distort it. Bounding the pixel *area* rather than fixing the dimensions is what keeps brush sizes, fill cost, and undo-snapshot memory consistent across devices and any imported shape — those all scale with pixel count, not with the buffer's proportions. The drawable area is exactly the canvas; any letterbox margin around it is non-drawable app background, marked off with a lighter fill and a thin border.
+
+### Importing an image at any aspect ratio
+
+Imported photos rarely match the canvas's proportions. Three options exist for fitting a mismatched image: crop it to fill (loses content), letterbox it (leaves dead bars), or reshape the canvas to the image. Doodlingz reshapes the canvas — the imported image keeps its exact aspect ratio with no crop and no bars, scaled down only if needed to stay within the pixel budget. The consequence is that the drawable area becomes the image itself; you draw on the photo rather than in a margin around it, which is the right model for an edit-the-photo workflow. The same single uniform-scale fit is shared between what's drawn on screen and where touches map to, so a stroke always lands exactly under the finger regardless of the imported shape.
 
 ### Hybrid vector-preview / raster-commit pipeline
 

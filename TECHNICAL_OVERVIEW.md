@@ -32,7 +32,7 @@ The project uses Flutter Clean Architecture with three layers plus a shared core
 
 **Core** (`lib/core/`) holds the theme and the constants. `CanvasConstants` is the single source of truth for raster dimensions, tool sizes, spray density, fill tolerance, and undo depth; `AppConstants` owns storage paths and the filename format.
 
-A note on layer placement: the raster engine (`canvas_compositor.dart`, `flood_fill.dart`, `coordinate_mapper.dart`, `stroke.dart`) lives under `presentation/editor/engine/` rather than in core. It is `dart:ui` rendering code tied to the editor screen, not app-wide configuration, so it sits with the feature that owns it.
+A note on layer placement: the raster engine (`canvas_compositor.dart`, `flood_fill.dart`, `coordinate_mapper.dart`, `canvas_fit.dart`, `stroke.dart`) lives under `presentation/editor/engine/` rather than in core. It is `dart:ui` rendering code tied to the editor screen, not app-wide configuration, so it sits with the feature that owns it.
 
 ### Typography
 
@@ -75,24 +75,30 @@ final bool     isDirty;           // pixels changed since last save/load/reset
 
 Because a pointer-move produces a new state every frame, the fields are kept minimal — the heavy `ui.Image` is passed by reference, not copied.
 
-### Fixed raster buffer
+### Budget-bounded raster buffer
 
-All drawing happens against a fixed pixel buffer, not the on-screen widget size. The buffer is **810 × 1080** (a 3:4 ratio); landscape is the transpose, **1080 × 810**. Keeping a fixed pixel budget means flood-fill cost and per-snapshot memory are constant regardless of device or orientation. Tool sizes are therefore expressed in *raster* pixels, so a 10px brush looks the same on every screen; the display layer scales the buffer to fit the available space, and the committed image is drawn with `FilterQuality.high` to smooth that upscale.
+All drawing happens against a pixel buffer, not the on-screen widget size. The buffer's *shape* is not fixed, but its *area* is: it always stays within a pixel budget of **810 × 1080 = 874,800 pixels** (`rasterPixelBudget`). What occupies that budget depends on how the canvas was created:
+
+- A **blank new drawing** is shaped to the editor area's aspect ratio (`rasterSizeForArea`), so it fills the screen without letterboxing. On a tall phone that is roughly 683 × 1280; the 3:4 presets (`portraitCanvasSize` / `landscapeCanvasSize`) remain as the pre-layout default and fallback.
+- An **imported image** keeps its own aspect ratio, scaled down only until its area is under budget (`CanvasCompositor.fromBytes`). A wide panorama becomes a wide buffer; a tall photo becomes a tall one.
+
+Bounding the *area* rather than the *dimensions* is what actually keeps flood-fill cost and per-snapshot memory constant — those scale with pixel count, not shape. Tool sizes are still expressed in *raster* pixels, so a 10px brush is a consistent fraction of the buffer. The display layer scales the buffer to fit the available space with a single uniform scale (never separate per-axis scales, which would distort), and the committed image is drawn with `FilterQuality.high` to smooth that scale.
 
 ---
 
 ## Coordinate Mapping
 
-`localToRaster()` (`engine/coordinate_mapper.dart`) converts a pointer position in the rendered widget's local space into a coordinate in the fixed raster buffer:
+Because the buffer and the display area can have different aspect ratios, the canvas is fitted into its display area with a single uniform scale and centred — the `BoxFit.contain` model. A single helper, `fitRasterInDisplay()` (`engine/canvas_fit.dart`), computes that fit and is the **one** source of truth shared by the painter and the coordinate mapper. If those two computed the fit independently they would drift apart whenever the ratios differed, stretching the image in one place while mapping touches against another.
+
+`localToRaster()` (`engine/coordinate_mapper.dart`) inverts that fit to convert a pointer position in the rendered widget's local space into a raster coordinate:
 
 ```dart
-scaleX = rasterSize.width  / displaySize.width
-scaleY = rasterSize.height / displaySize.height
-rx = (localPosition.dx * scaleX).clamp(0, rasterSize.width  - 1)
-ry = (localPosition.dy * scaleY).clamp(0, rasterSize.height - 1)
+fit = fitRasterInDisplay(rasterSize, displaySize)  // uniform scale + centred rect
+rx = ((localPosition.dx - fit.destination.left) / fit.scale).clamp(0, rasterSize.width  - 1)
+ry = ((localPosition.dy - fit.destination.top)  / fit.scale).clamp(0, rasterSize.height - 1)
 ```
 
-The clamp guarantees every returned coordinate is a valid index into the raw byte buffer, so callers — particularly the flood fill seed — can never read out of bounds. The controller stores the current display size and refreshes it via `updateDisplaySize()` when the canvas is resized or rotated.
+It removes the centring offset first, then divides by the single uniform scale. The clamp guarantees every returned coordinate is a valid index into the raw byte buffer, so callers — particularly the flood fill seed — can never read out of bounds; it also folds a touch that lands in the letterbox margin onto the nearest edge pixel. In practice the canvas widget is itself constrained to the buffer's aspect ratio (via `Center` + `AspectRatio` in `EditorScreen`), so the fit usually resolves to a zero offset — the drawable area *is* the canvas, and the surrounding margin is non-drawable app background. The controller stores the current display size and refreshes it via `updateDisplaySize()` when the canvas is resized, rotated, or reshaped by an import.
 
 ---
 
@@ -199,9 +205,9 @@ _dirty = true;        // single point where the drawing becomes dirty
 
 `undo()` pushes the current image onto the redo stack and pops the previous one back; `redo()` is the mirror. Both set `isDirty = true` — leaving the canvas dirty after an undo is intentional and matches desktop editors (Photoshop, Figma), where undoing is itself an unsaved change.
 
-The task requires 5 steps; `maxHistorySteps` is 20. The headroom is deliberately capped because each snapshot is a full 810×1080×4 buffer (~3.5 MB), so an unbounded stack would grow memory without limit.
+The task requires 5 steps; `maxHistorySteps` is 20. The headroom is deliberately capped because each snapshot is a full-buffer RGBA image at the pixel budget (~3.5 MB at 874,800 px × 4 bytes), so an unbounded stack would grow memory without limit.
 
-`clear()` is a single undoable action — it pushes the current state, then swaps in a blank canvas. `reset()` is different: it wipes both stacks and the dirty flag, abandoning the drawing entirely, so the editor is in the same state as a cold launch. `loadImage()` is `reset()` with content instead of blank.
+`clear()` is a single undoable action — it pushes the current state, then swaps in a blank canvas at the *current* shape (clearing an imported wide canvas keeps it wide). `reset()` is different: it wipes both stacks and the dirty flag and rebuilds the canvas to fill the current editor area, so a new drawing returns to a screen-filling shape regardless of what an import left behind — the same state as a cold launch. `loadImage()` is parallel to `reset()` but with content instead of blank, and it adopts the loaded image's dimensions as the new raster size so the coordinate mapper, clear, and spray clamps all follow the imported shape.
 
 ---
 
@@ -278,8 +284,11 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 
 | Constant | Value | What it controls |
 | --- | --- | --- |
-| `rasterShortSide` / `rasterLongSide` | 810 / 1080 | Fixed 3:4 raster buffer dimensions |
+| `rasterShortSide` / `rasterLongSide` | 810 / 1080 | Default 3:4 buffer dimensions (blank-canvas fallback) |
+| `rasterPixelBudget` | 874,800 | Max raster area; imports and new canvases scale to fit within it |
 | `canvasColor` | `0xFFFFFFFF` | Default white substrate; eraser restores to this |
+| `canvasMarginColor` | `0xFF333333` | Letterbox margin around a bounded canvas, lighter than the scaffold |
+| `canvasBorderColor` / `canvasBorderWidth` | `0x33FFFFFF` / 1 | Border around the canvas rect so the drawable area stands out |
 | `brushSizes` | 4 / 10 / 20 | Selectable brush and highlighter widths (raster px) |
 | `shapeOutlineWidths` | 3 / 6 / 12 | Selectable shape outline widths (raster px) |
 | `spraySizes` | 20 / 40 | Spray scatter radius (not dot size) |
@@ -304,6 +313,7 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `hubArcDuration` | 280ms | Hub open/close arc animation duration |
 | `hubHandleFadeDuration` | 150ms | Handle icon opacity fade duration |
 | `hubSurface` | `0xFF242424` | Hub node and handle interior color; hardcoded so it never themes to white |
+| `hubHandleRing` / `hubHandleRingWidth` | `0x66FFFFFF` / 2 | Contrast ring on the handle so it stays visible on the dark editor margin |
 | `hubScrimOpacity` | 0.08 | Scrim opacity behind open hub arc nodes |
 | `hubIconOpacity` | 0.9 | Hub node icon opacity |
 | `hubColorNodeBorderOpacity` | 0.85 | Border opacity for the color category node |
