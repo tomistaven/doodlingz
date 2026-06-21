@@ -10,6 +10,7 @@ import '../engine/canvas_compositor.dart';
 import '../engine/canvas_fit.dart';
 import '../engine/coordinate_mapper.dart';
 import '../engine/stroke.dart';
+import '../engine/view_transform.dart';
 import 'canvas_state.dart';
 
 /// Drives the drawing canvas.
@@ -49,13 +50,12 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
   bool get isInitialised => _initialised;
 
-  // User viewport transform. zoom 1.0 / pan zero is the plain contain-fit, in
-  // which state the painter and mapper take their pre-zoom fast path.
-  double _zoom = 1.0;
-  Offset _pan = Offset.zero;
+  // User viewport transform. ViewTransform.identity is the plain contain-fit,
+  // in which state the painter and mapper take their pre-zoom fast path.
+  ViewTransform _view = ViewTransform.identity;
 
   // Zoom at the start of the active scale gesture, so cumulative scale deltas
-  // compose onto wherever the previous gesture left the view.
+  // in applyGesture compose onto wherever the previous gesture left the view.
   double _viewStartZoom = 1.0;
 
   // Kept local to the view gesture rather than in CanvasConstants because they
@@ -116,8 +116,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
-      zoom: _zoom,
-      pan: _pan,
+      zoom: _view.zoom,
+      pan: _view.pan,
     );
 
     if (tool == DrawingTool.fill) {
@@ -145,8 +145,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
-      zoom: _zoom,
-      pan: _pan,
+      zoom: _view.zoom,
+      pan: _view.pan,
     );
 
     if (current.isFreehand) {
@@ -206,15 +206,15 @@ class CanvasController extends ValueNotifier<CanvasState> {
   /// scale in [updateView] is multiplied against this, so a pinch resumes from
   /// wherever the last one ended instead of snapping back to 1.0.
   void beginView() {
-    _viewStartZoom = _zoom;
+    _viewStartZoom = _view.zoom;
   }
 
   /// Applies one frame of a two-finger navigation gesture.
   ///
   /// [scale] is cumulative since the gesture start; [focalPoint] and
-  /// [focalDelta] are in canvas-widget-local pixels. The new zoom is anchored
-  /// about the focal point so the content under the fingers stays put, then the
-  /// pan is clamped so the canvas cannot leave the viewport.
+  /// [focalDelta] are in canvas-widget-local pixels. The focal-anchored zoom
+  /// and pan-clamp math lives in [ViewTransform.applyGesture] so it can be
+  /// tested as pure geometry independent of the controller.
   void updateView({
     required double scale,
     required Offset focalPoint,
@@ -226,24 +226,16 @@ class CanvasController extends ValueNotifier<CanvasState> {
       rasterSize: _rasterSize,
       displaySize: _displaySize,
     );
-    final centre = base.destination.center;
 
-    final z0 = _zoom;
-    final z1 = (_viewStartZoom * scale).clamp(_minZoom, _maxZoom);
-
-    final focalFromCentre = focalPoint - centre;
-    final pannedFromCentre = _pan + focalDelta;
-    // Keep the content under the focal point fixed across the zoom change:
-    // solve for the pan that holds that raster point in place as z0 -> z1.
-    final anchored =
-        focalFromCentre - (focalFromCentre - pannedFromCentre) * (z1 / z0);
-
-    _zoom = z1;
-    _pan = clampViewPan(
+    _view = _view.applyGesture(
+      startZoom: _viewStartZoom,
+      scale: scale,
+      focalPoint: focalPoint,
+      panDelta: focalDelta,
       baseRect: base.destination,
       displaySize: _displaySize,
-      zoom: z1,
-      pan: anchored,
+      minZoom: _minZoom,
+      maxZoom: _maxZoom,
     );
     _notify(value.committedImage, value.activeStroke);
   }
@@ -251,8 +243,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
   /// Returns the viewport to 1:1, centred. Called whenever the canvas identity
   /// changes (new drawing, loaded image) so it always opens un-zoomed.
   void resetView() {
-    _zoom = 1.0;
-    _pan = Offset.zero;
+    _view = ViewTransform.identity;
     _viewStartZoom = 1.0;
   }
 
@@ -384,8 +375,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
       isDirty: _dirty,
-      zoom: _zoom,
-      pan: _pan,
+      view: _view,
     );
   }
 
@@ -396,8 +386,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canUndo: value.canUndo,
       canRedo: value.canRedo,
       isDirty: _dirty,
-      zoom: _zoom,
-      pan: _pan,
+      view: _view,
     );
   }
 

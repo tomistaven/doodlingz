@@ -40,8 +40,8 @@ class DrawingCanvasPainter extends CustomPainter {
     final fit = fitRasterWithView(
       rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
       displaySize: size,
-      zoom: state.zoom,
-      pan: state.pan,
+      zoom: state.view.zoom,
+      pan: state.view.pan,
     );
 
     // Smooths out the sub-pixel aliasing jump when the vector is rasterized
@@ -57,8 +57,8 @@ class DrawingCanvasPainter extends CustomPainter {
     final fit = fitRasterWithView(
       rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
       displaySize: size,
-      zoom: state.zoom,
-      pan: state.pan,
+      zoom: state.view.zoom,
+      pan: state.view.pan,
     );
 
     canvas.save();
