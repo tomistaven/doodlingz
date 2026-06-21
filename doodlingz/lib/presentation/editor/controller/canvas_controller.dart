@@ -35,12 +35,21 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
   bool _dirty = false;
 
-  late Size _rasterSize;
+  // Defaults to the portrait preset so the canvas can be laid out at the right
+  // aspect ratio before initialise() runs; an import later reshapes it.
+  Size _rasterSize = CanvasConstants.portraitCanvasSize;
   late Size _displaySize;
+
+  // The most recent editor area (full available space, not the fitted canvas).
+  // A fresh canvas is shaped to this so it fills the screen without letterbox.
+  Size _editorArea = CanvasConstants.portraitCanvasSize;
 
   bool _initialised = false;
 
   bool get isInitialised => _initialised;
+
+  /// Current raster buffer dimensions. Drives the canvas widget's aspect ratio.
+  Size get rasterSize => _rasterSize;
 
   /// Must be called once before any drawing operations.
   ///
@@ -65,6 +74,12 @@ class CanvasController extends ValueNotifier<CanvasState> {
   /// Updates the display size when the canvas widget is resized or rotated.
   void updateDisplaySize(Size displaySize) {
     _displaySize = displaySize;
+  }
+
+  /// Records the editor's available area so a fresh canvas can be shaped to fill
+  /// it. A plain field assignment with no notify, safe to call during build.
+  void setEditorArea(Size area) {
+    _editorArea = area;
   }
 
   void onPointerDown(
@@ -160,9 +175,12 @@ class CanvasController extends ValueNotifier<CanvasState> {
   ///
   /// Unlike [clear] this is not undoable — it abandons the previous drawing
   /// entirely, including its undo/redo branches, so the editor is in the same
-  /// state as a cold launch.
+  /// state as a cold launch. That includes the canvas shape: an import may have
+  /// left the raster at an arbitrary aspect ratio, so reset rebuilds it to fill
+  /// the current editor area.
   Future<void> reset() async {
     if (!_initialised) return;
+    _rasterSize = CanvasConstants.rasterSizeForArea(_editorArea);
     _undoStack.clear();
     _redoStack.clear();
     _dirty = false;
@@ -172,10 +190,14 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
   /// Swaps in a loaded image, wipes history, and marks the canvas clean.
   ///
-  /// Parallel to [reset] but with content instead of blank. Safe to call only
-  /// after [initialise] has completed — callers must guard on [isInitialised].
+  /// Parallel to [reset] but with content instead of blank. The loaded image
+  /// defines the new raster size, so an imported landscape photo flips the
+  /// buffer to landscape and the coordinate mapper, clear, and spray clamps all
+  /// follow. Safe to call only after [initialise] has completed — callers must
+  /// guard on [isInitialised].
   void loadImage(ui.Image image) {
     if (!_initialised) return;
+    _rasterSize = Size(image.width.toDouble(), image.height.toDouble());
     _undoStack.clear();
     _redoStack.clear();
     _dirty = false;

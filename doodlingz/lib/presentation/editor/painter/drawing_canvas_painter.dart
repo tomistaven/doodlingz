@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/drawing_tool.dart';
 import '../controller/canvas_state.dart';
+import '../engine/canvas_fit.dart';
 import '../engine/stroke.dart';
 
 /// Renders the committed raster image and the active stroke overlay.
@@ -32,22 +33,29 @@ class DrawingCanvasPainter extends CustomPainter {
       image.width.toDouble(),
       image.height.toDouble(),
     );
-    final dst = Offset.zero & size;
-    
+    final fit = fitRasterInDisplay(
+      rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
+      displaySize: size,
+    );
+
     // Smooths out the sub-pixel aliasing jump when the vector is rasterized
     final paint = Paint()..filterQuality = FilterQuality.high;
-    
-    canvas.drawImageRect(image, src, dst, paint);
+
+    canvas.drawImageRect(image, src, fit.destination, paint);
   }
 
   void _drawOverlay(Canvas canvas, Size size, Stroke stroke) {
     if (stroke.points.isEmpty) return;
 
-    final scaleX = size.width / state.committedImage.width;
-    final scaleY = size.height / state.committedImage.height;
+    final image = state.committedImage;
+    final fit = fitRasterInDisplay(
+      rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
+      displaySize: size,
+    );
 
     canvas.save();
-    canvas.scale(scaleX, scaleY);
+    canvas.translate(fit.destination.left, fit.destination.top);
+    canvas.scale(fit.scale, fit.scale);
 
     if (stroke.isShape) {
       _paintShape(canvas, stroke);

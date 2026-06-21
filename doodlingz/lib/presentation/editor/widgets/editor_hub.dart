@@ -380,9 +380,13 @@ class _EditorHubState extends State<EditorHub>
               opacity: _isOpen ? 1.0 : 0.9,
               duration: UiConstants.hubHandleFadeDuration,
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: UiConstants.hubSurface,
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: UiConstants.hubHandleRing,
+                    width: UiConstants.hubHandleRingWidth,
+                  ),
                 ),
                 child: Center(
                   child: Icon(

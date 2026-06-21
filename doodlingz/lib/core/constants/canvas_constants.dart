@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show Color, Size;
 
 /// Fixed configuration for the drawing canvas and its tools.
@@ -7,9 +8,8 @@ import 'dart:ui' show Color, Size;
 /// keeps brush, shape, and spray sizes consistent across devices while the
 /// display layer scales the buffer to fit the available space.
 abstract final class CanvasConstants {
-  // Fixed 3:4 pixel budget. Portrait and landscape are transposes of the same
-  // pixel count, so flood-fill cost and snapshot memory stay constant
-  // regardless of the orientation a drawing is created in.
+  // Default 3:4 budget for blank canvases. A fresh drawing is always portrait
+  // or its landscape transpose, both the same pixel count.
   static const int rasterShortSide = 810;
   static const int rasterLongSide = 1080;
 
@@ -21,6 +21,12 @@ abstract final class CanvasConstants {
     rasterLongSide.toDouble(),
     rasterShortSide.toDouble(),
   );
+
+  // Imported images keep their own aspect ratio rather than being cropped to
+  // the 3:4 presets, so the raster can be any shape. What stays bounded is the
+  // total pixel area: an import is scaled to fit within this budget, which is
+  // what actually caps flood-fill cost and per-snapshot memory (~3.5 MB here).
+  static const int rasterPixelBudget = rasterShortSide * rasterLongSide;
 
   // The canvas substrate is white by default and is never themed; the eraser
   // restores affected pixels to exactly this color.
@@ -42,6 +48,33 @@ abstract final class CanvasConstants {
   // anti-aliased edges don't leave an unfilled halo. Raise if halos appear,
   // lower if fills bleed past boundaries.
   static const int fillColorTolerance = 32;
+
+  // The letterbox margin shown around a bounded canvas. Lighter than the
+  // scaffold so the dark drawable area reads as distinct from the surround.
+  static const Color canvasMarginColor = Color(0xFF333333);
+
+  // Thin border drawn around the canvas rect so the drawable area stands out
+  // from the margin like a sheet on a desk, for both blank and imported canvases.
+  static const Color canvasBorderColor = Color(0x33FFFFFF);
+  static const double canvasBorderWidth = 1.0;
+
+  /// A budget-bounded raster matching [area]'s aspect ratio.
+  ///
+  /// A fresh canvas fills the editor area rather than using the fixed 3:4
+  /// preset, so it does not letterbox on tall screens. The shape follows the
+  /// device's editor area while the total pixel count stays under
+  /// [rasterPixelBudget], which is what keeps flood-fill cost and snapshot
+  /// memory bounded. Falls back to the portrait preset for a degenerate area.
+  static Size rasterSizeForArea(Size area) {
+    if (area.width <= 0 || area.height <= 0) {
+      return portraitCanvasSize;
+    }
+    final aspect = area.width / area.height;
+    // width * height = budget, width / height = aspect  ->  solve for each.
+    final height = math.sqrt(rasterPixelBudget / aspect);
+    final width = height * aspect;
+    return Size(width.roundToDouble(), height.roundToDouble());
+  }
 
   // Quick-access palette shown in the radial swatch menu. Kept here rather than
   // in the widget so the palette can be tuned without touching presentation

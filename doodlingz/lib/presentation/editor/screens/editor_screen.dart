@@ -12,6 +12,7 @@ import '../controller/canvas_state.dart';
 import '../cubit/editor_cubit.dart';
 import '../cubit/editor_state.dart';
 import '../engine/canvas_compositor.dart';
+import '../engine/canvas_fit.dart';
 import '../painter/drawing_canvas_painter.dart';
 import '../widgets/editor_hub.dart';
 import '../widgets/onboarding_overlay.dart';
@@ -53,21 +54,29 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   }
 
   void _ensureCanvasInitialised(BoxConstraints constraints) {
-    final displaySize = Size(constraints.maxWidth, constraints.maxHeight);
-    _controller.updateDisplaySize(displaySize);
-
     if (_initRequested) return;
     _initRequested = true;
 
+    final areaSize = Size(constraints.maxWidth, constraints.maxHeight);
+    final rasterSize = CanvasConstants.rasterSizeForArea(areaSize);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initialiseCanvas(displaySize);
+      _initialiseCanvas(rasterSize, _canvasDisplaySize(areaSize, rasterSize));
     });
   }
 
-  Future<void> _initialiseCanvas(Size displaySize) async {
+  // The canvas widget is constrained to the raster's aspect ratio, so the size
+  // the coordinate mapper sees is the fitted rect, not the whole editor area.
+  Size _canvasDisplaySize(Size areaSize, Size rasterSize) {
+    return fitRasterInDisplay(
+      rasterSize: rasterSize,
+      displaySize: areaSize,
+    ).destination.size;
+  }
+
+  Future<void> _initialiseCanvas(Size rasterSize, Size displaySize) async {
     if (!mounted) return;
     await _controller.initialise(
-      rasterSize: CanvasConstants.portraitCanvasSize,
+      rasterSize: rasterSize,
       displaySize: displaySize,
     );
     _initCompleter.complete();
@@ -123,10 +132,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     await _initCompleter.future;
     if (!mounted) return;
 
-    final image = await CanvasCompositor.fromBytes(
-      bytes,
-      CanvasConstants.portraitCanvasSize,
-    );
+    final image = await CanvasCompositor.fromBytes(bytes);
     if (!mounted) return;
 
     _controller.loadImage(image);
@@ -196,30 +202,56 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     return LayoutBuilder(
       builder: (context, constraints) {
         _ensureCanvasInitialised(constraints);
+        final areaSize = Size(constraints.maxWidth, constraints.maxHeight);
+        _controller.setEditorArea(areaSize);
         return Stack(
           children: [
+            const Positioned.fill(
+              child: ColoredBox(color: CanvasConstants.canvasMarginColor),
+            ),
             BlocBuilder<EditorCubit, EditorState>(
               builder: (context, editorState) {
-                return GestureDetector(
-                  onPanStart: (d) => _controller.onPointerDown(
-                    d.localPosition,
-                    editorState.tool,
-                    editorState.color,
-                    editorState.strokeSize,
-                  ),
-                  onPanUpdate: (d) =>
-                      _controller.onPointerMove(d.localPosition),
-                  onPanEnd: (_) => _controller.onPointerUp(),
-                  child: ColoredBox(
-                    color: CanvasConstants.canvasColor,
-                    child: ValueListenableBuilder<CanvasState>(
-                      valueListenable: _controller,
-                      builder: (_, state, _) => CustomPaint(
-                        painter: DrawingCanvasPainter(state: state),
-                        size: Size(constraints.maxWidth, constraints.maxHeight),
+                return ValueListenableBuilder<CanvasState>(
+                  valueListenable: _controller,
+                  builder: (_, state, _) {
+                    final raster = _controller.rasterSize;
+                    // Keep the mapper's display size in step with the fitted
+                    // rect whenever an import reshapes the raster.
+                    _controller.updateDisplaySize(
+                      _canvasDisplaySize(areaSize, raster),
+                    );
+                    return Center(
+                      child: AspectRatio(
+                        aspectRatio: raster.width / raster.height,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: CanvasConstants.canvasBorderColor,
+                              width: CanvasConstants.canvasBorderWidth,
+                            ),
+                          ),
+                          child: GestureDetector(
+                            onPanStart: (d) => _controller.onPointerDown(
+                              d.localPosition,
+                              editorState.tool,
+                              editorState.color,
+                              editorState.strokeSize,
+                            ),
+                            onPanUpdate: (d) =>
+                                _controller.onPointerMove(d.localPosition),
+                            onPanEnd: (_) => _controller.onPointerUp(),
+                            child: ColoredBox(
+                              color: CanvasConstants.canvasColor,
+                              child: CustomPaint(
+                                painter: DrawingCanvasPainter(state: state),
+                                size: Size.infinite,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             ),

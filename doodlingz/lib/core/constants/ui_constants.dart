@@ -38,6 +38,15 @@ abstract final class UiConstants {
   /// matches the app surface colour but hardcoded so it never themes to white.
   static const Color hubSurface = Color(0xFF242424);
 
+  /// Outer ring on the hub handle. The handle interior is dark, so on the dark
+  /// editor margin around a bounded canvas it would otherwise vanish; this
+  /// translucent-white ring keeps an edge visible against both the white canvas
+  /// and the dark surround.
+  static const Color hubHandleRing = Color(0x66FFFFFF);
+
+  /// Width of the hub handle contrast ring.
+  static const double hubHandleRingWidth = 2.0;
+
   /// Scrim opacity behind open hub arc nodes.
   static const double hubScrimOpacity = 0.08;
 

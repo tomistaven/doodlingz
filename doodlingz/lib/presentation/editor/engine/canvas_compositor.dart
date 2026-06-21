@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -26,40 +27,58 @@ class CanvasCompositor {
     return picture.toImage(size.width.toInt(), size.height.toInt());
   }
 
-  /// Loads PNG [bytes] into a [ui.Image] scaled to fit [targetSize].
+  /// Loads PNG [bytes] into a raster [ui.Image] that keeps the source's exact
+  /// aspect ratio, scaled so the total pixel area fits within
+  /// [CanvasConstants.rasterPixelBudget].
   ///
-  /// Saved app drawings are already at raster size so the scale is 1:1.
-  /// Imported device photos are typically much larger — scaling them here
-  /// ensures the raster buffer dimensions match [targetSize] exactly, which
-  /// keeps the coordinate mapper accurate.
-  static Future<ui.Image> fromBytes(Uint8List bytes, Size targetSize) async {
+  /// The buffer reshapes to the image — no crop, no letterbox. A small image is
+  /// never upscaled past its own size; a large one is downscaled until its area
+  /// is under budget. Saved app drawings already sit within budget so they
+  /// short-circuit to a 1:1 return. The whole source is drawn into a buffer of
+  /// exactly the target shape, so the draw is a straight fit with no overflow.
+  static Future<ui.Image> fromBytes(Uint8List bytes) async {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final source = frame.image;
 
-    // If the image is already the correct size (saved app drawing), return
-    // it directly without an extra draw call.
-    if (source.width == targetSize.width.toInt() &&
-        source.height == targetSize.height.toInt()) {
+    final sourceArea = source.width * source.height;
+    // Downscale only. sqrt(budget/area) is the linear factor that brings the
+    // area to budget while holding aspect ratio; clamp to 1.0 so we never
+    // enlarge an already-small image.
+    final scale = sourceArea <= CanvasConstants.rasterPixelBudget
+        ? 1.0
+        : sqrt(CanvasConstants.rasterPixelBudget / sourceArea);
+
+    if (scale == 1.0) {
       return source;
     }
 
-    // Scale the image into a new recorder at targetSize so all subsequent
-    // drawing operations and coordinate mapping work against a consistent size.
+    final targetWidth = (source.width * scale).round();
+    final targetHeight = (source.height * scale).round();
+
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
-
     final srcRect = Rect.fromLTWH(
       0,
       0,
       source.width.toDouble(),
       source.height.toDouble(),
     );
-    final dstRect = Offset.zero & targetSize;
-    canvas.drawImageRect(source, srcRect, dstRect, Paint());
+    final dstRect = Rect.fromLTWH(
+      0,
+      0,
+      targetWidth.toDouble(),
+      targetHeight.toDouble(),
+    );
+    canvas.drawImageRect(
+      source,
+      srcRect,
+      dstRect,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
 
     final picture = recorder.endRecording();
-    return picture.toImage(targetSize.width.toInt(), targetSize.height.toInt());
+    return picture.toImage(targetWidth, targetHeight);
   }
 
   /// Commits a completed [stroke] onto [current], returning a new image.
