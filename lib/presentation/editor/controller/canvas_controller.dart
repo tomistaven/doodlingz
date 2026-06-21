@@ -63,6 +63,13 @@ class CanvasController extends ValueNotifier<CanvasState> {
   static const double _minZoom = 1.0;
   static const double _maxZoom = 5.0;
 
+  // Fill is deferred from pointer-down to pointer-up. Unlike every other tool it
+  // mutated the raster on touch-down, which fired before a second finger could
+  // be seen — so a two-finger zoom flood-filled on the first touch. Stashing it
+  // here lets cancelStroke discard it when the gesture turns into navigation.
+  Offset? _pendingFill;
+  Color? _pendingFillColor;
+
   /// Current raster buffer dimensions. Drives the canvas widget's aspect ratio.
   Size get rasterSize => _rasterSize;
 
@@ -114,7 +121,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
     );
 
     if (tool == DrawingTool.fill) {
-      _commitFill(rasterPoint, color);
+      _pendingFill = rasterPoint;
+      _pendingFillColor = color;
       return;
     }
 
@@ -161,19 +169,32 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
   void onPointerUp() {
     if (!_initialised) return;
+
+    final fillPoint = _pendingFill;
+    final fillColor = _pendingFillColor;
+    if (fillPoint != null && fillColor != null) {
+      _pendingFill = null;
+      _pendingFillColor = null;
+      _commitFill(fillPoint, fillColor);
+      return;
+    }
+
     final stroke = value.activeStroke;
     if (stroke == null) return;
     _commitStroke(stroke);
   }
 
-  /// Discards the in-progress stroke without committing it or touching history.
+  /// Discards an in-progress action without committing it or touching history.
   ///
-  /// Called when a one-finger draw escalates to a two-finger navigation
-  /// gesture: the stroke finger one began must be thrown away here, because
-  /// otherwise it stays active and the eventual pointer-up commits it as a
-  /// stray mark — the exact failure that sank the previous zoom attempt.
+  /// Called when a one-finger gesture escalates to two-finger navigation: the
+  /// stroke or pending fill finger one began must be thrown away here, because
+  /// otherwise it commits on pointer-up as a stray mark — the exact failure that
+  /// sank the previous zoom attempt. Clears the pending fill unconditionally,
+  /// since a fill leaves no active stroke to detect.
   void cancelStroke() {
     if (!_initialised) return;
+    _pendingFill = null;
+    _pendingFillColor = null;
     if (value.activeStroke == null) return;
     _notify(value.committedImage, null);
   }
