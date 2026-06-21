@@ -14,6 +14,8 @@ class CanvasState {
     required this.canUndo,
     required this.canRedo,
     required this.isDirty,
+    this.zoom = 1.0,
+    this.pan = ui.Offset.zero,
   });
 
   /// The last fully committed raster buffer. Displayed as the canvas background.
@@ -29,4 +31,13 @@ class CanvasState {
   /// True when committed pixels have changed since the last save, load, or
   /// reset. Drives the export prompt so a clean drawing exports without nagging.
   final bool isDirty;
+
+  /// User viewport zoom factor; 1.0 is the contain-fit with no zoom applied.
+  /// Composed onto the canvas fit by `fitRasterWithView` so the painter renders
+  /// the zoomed view from the same transform the coordinate mapper inverts.
+  final double zoom;
+
+  /// User viewport pan in display pixels, relative to the centred contain-fit.
+  /// Pre-clamped by the controller, so it can never push the canvas off view.
+  final ui.Offset pan;
 }

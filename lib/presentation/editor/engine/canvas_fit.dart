@@ -42,3 +42,64 @@ CanvasFit fitRasterInDisplay({
     scale: scale,
   );
 }
+
+/// Clamps a user pan offset so the zoomed canvas can never be dragged off the
+/// viewport, returning the corrected offset.
+///
+/// Per axis the canvas may only be panned by how far it overflows the display
+/// at the given [zoom]. When the canvas is not larger than the display on an
+/// axis (the letterboxed axis, or any axis at zoom 1) the overflow is zero, so
+/// pan locks to centred there — that is what keeps zoom 1 pinned exactly to the
+/// contain-fit position and the canvas always at least partly visible.
+Offset clampViewPan({
+  required Rect baseRect,
+  required Size displaySize,
+  required double zoom,
+  required Offset pan,
+}) {
+  final overflowX = (baseRect.width * zoom - displaySize.width) / 2;
+  final overflowY = (baseRect.height * zoom - displaySize.height) / 2;
+  final maxX = overflowX > 0 ? overflowX : 0.0;
+  final maxY = overflowY > 0 ? overflowY : 0.0;
+  return Offset(
+    pan.dx.clamp(-maxX, maxX),
+    pan.dy.clamp(-maxY, maxY),
+  );
+}
+
+/// The contain-fit with a user [zoom] and [pan] composed on top, scaled about
+/// the base fit's centre and translated by the clamped pan.
+///
+/// Returns the same [CanvasFit] shape the painter and coordinate mapper already
+/// consume, so both stay driven by one transform and cannot drift. When the
+/// view is idle (zoom 1, no pan) it returns the untouched base fit, so disabling
+/// the feature is exactly the pre-zoom behaviour rather than a near-copy of it.
+CanvasFit fitRasterWithView({
+  required Size rasterSize,
+  required Size displaySize,
+  required double zoom,
+  required Offset pan,
+}) {
+  final base = fitRasterInDisplay(
+    rasterSize: rasterSize,
+    displaySize: displaySize,
+  );
+
+  if (zoom == 1.0 && pan == Offset.zero) return base;
+
+  final clampedPan = clampViewPan(
+    baseRect: base.destination,
+    displaySize: displaySize,
+    zoom: zoom,
+    pan: pan,
+  );
+
+  return CanvasFit(
+    destination: Rect.fromCenter(
+      center: base.destination.center + clampedPan,
+      width: base.destination.width * zoom,
+      height: base.destination.height * zoom,
+    ),
+    scale: base.scale * zoom,
+  );
+}

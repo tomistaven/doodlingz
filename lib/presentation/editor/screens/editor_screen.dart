@@ -32,6 +32,24 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   bool _tutorialDismissedThisSession = false;
   bool _tutorialRequestedThisSession = false;
 
+  // True for the rest of a gesture once it has become multi-touch, so a pinch
+  // never reverts to drawing. Lifting one finger out of a pinch keeps the
+  // gesture navigational, so release can't resurrect a stroke and commit a
+  // stray mark. Driven by raw pointer count, reset when all fingers lift.
+  bool _navigating = false;
+
+  // Raw pointer count from a Listener, not the scale recogniser. When two
+  // fingers land a fraction apart the recogniser reports start -> end -> start
+  // rather than one continuous gesture, and that middle end would commit the
+  // first finger's stroke as a stray dot. Raw down events fire before the arena
+  // re-resolves, so the second finger cancels the stroke before any commit.
+  int _rawPointers = 0;
+
+  // Hand-flip to true on-device to trace gesture transitions in the log. Baked
+  // in because escalation handling is the one part of this feature prone to the
+  // stray-mark regression, and a transition trace pinpoints it immediately.
+  static final bool _logGestures = false;
+
   /// Completes when [CanvasController.initialise] returns.
   /// Load requests that arrive before init finishes await this before
   /// calling [CanvasController.loadImage], preventing a race between the
@@ -51,6 +69,60 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onPointerDownRaw() {
+    _rawPointers++;
+    if (_rawPointers >= 2 && !_navigating) {
+      _navigating = true;
+      _zoomDiag('second pointer down -> navigation, cancelling stroke');
+      _controller.cancelStroke();
+    }
+  }
+
+  void _onPointerUpRaw() {
+    if (_rawPointers > 0) _rawPointers--;
+    if (_rawPointers == 0) _navigating = false;
+  }
+
+  void _onScaleStart(ScaleStartDetails details, EditorState editorState) {
+    _controller.beginView();
+    if (_navigating) {
+      _zoomDiag('start: navigation');
+      return;
+    }
+    _zoomDiag('start: draw');
+    _controller.onPointerDown(
+      details.localFocalPoint,
+      editorState.tool,
+      editorState.color,
+      editorState.strokeSize,
+    );
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (_navigating) {
+      _controller.updateView(
+        scale: details.scale,
+        focalPoint: details.localFocalPoint,
+        focalDelta: details.focalPointDelta,
+      );
+      return;
+    }
+    _controller.onPointerMove(details.localFocalPoint);
+  }
+
+  void _onScaleEnd(ScaleEndDetails details) {
+    if (_navigating) {
+      _zoomDiag('end: navigation');
+      return;
+    }
+    _zoomDiag('end: commit stroke');
+    _controller.onPointerUp();
+  }
+
+  void _zoomDiag(String message) {
+    if (_logGestures) debugPrint('[zoom] $message');
   }
 
   void _ensureCanvasInitialised(BoxConstraints constraints) {
@@ -230,21 +302,21 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                               width: CanvasConstants.canvasBorderWidth,
                             ),
                           ),
-                          child: GestureDetector(
-                            onPanStart: (d) => _controller.onPointerDown(
-                              d.localPosition,
-                              editorState.tool,
-                              editorState.color,
-                              editorState.strokeSize,
-                            ),
-                            onPanUpdate: (d) =>
-                                _controller.onPointerMove(d.localPosition),
-                            onPanEnd: (_) => _controller.onPointerUp(),
-                            child: ColoredBox(
-                              color: CanvasConstants.canvasColor,
-                              child: CustomPaint(
-                                painter: DrawingCanvasPainter(state: state),
-                                size: Size.infinite,
+                          child: Listener(
+                            onPointerDown: (_) => _onPointerDownRaw(),
+                            onPointerUp: (_) => _onPointerUpRaw(),
+                            onPointerCancel: (_) => _onPointerUpRaw(),
+                            child: GestureDetector(
+                              onScaleStart: (d) =>
+                                  _onScaleStart(d, editorState),
+                              onScaleUpdate: _onScaleUpdate,
+                              onScaleEnd: _onScaleEnd,
+                              child: ColoredBox(
+                                color: CanvasConstants.canvasColor,
+                                child: CustomPaint(
+                                  painter: DrawingCanvasPainter(state: state),
+                                  size: Size.infinite,
+                                ),
                               ),
                             ),
                           ),

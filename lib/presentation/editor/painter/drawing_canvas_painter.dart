@@ -17,6 +17,10 @@ class DrawingCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // CustomPainter does not clip to its size; without this a zoomed canvas
+    // spills magnified pixels over the paper border and onto the desk margin.
+    canvas.clipRect(Offset.zero & size);
+
     _drawCommittedImage(canvas, size);
 
     final stroke = state.activeStroke;
@@ -33,9 +37,11 @@ class DrawingCanvasPainter extends CustomPainter {
       image.width.toDouble(),
       image.height.toDouble(),
     );
-    final fit = fitRasterInDisplay(
+    final fit = fitRasterWithView(
       rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
       displaySize: size,
+      zoom: state.zoom,
+      pan: state.pan,
     );
 
     // Smooths out the sub-pixel aliasing jump when the vector is rasterized
@@ -48,9 +54,11 @@ class DrawingCanvasPainter extends CustomPainter {
     if (stroke.points.isEmpty) return;
 
     final image = state.committedImage;
-    final fit = fitRasterInDisplay(
+    final fit = fitRasterWithView(
       rasterSize: Size(image.width.toDouble(), image.height.toDouble()),
       displaySize: size,
+      zoom: state.zoom,
+      pan: state.pan,
     );
 
     canvas.save();

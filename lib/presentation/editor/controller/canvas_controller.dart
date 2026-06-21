@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/canvas_constants.dart';
 import '../../../domain/entities/drawing_tool.dart';
 import '../engine/canvas_compositor.dart';
+import '../engine/canvas_fit.dart';
 import '../engine/coordinate_mapper.dart';
 import '../engine/stroke.dart';
 import 'canvas_state.dart';
@@ -47,6 +48,20 @@ class CanvasController extends ValueNotifier<CanvasState> {
   bool _initialised = false;
 
   bool get isInitialised => _initialised;
+
+  // User viewport transform. zoom 1.0 / pan zero is the plain contain-fit, in
+  // which state the painter and mapper take their pre-zoom fast path.
+  double _zoom = 1.0;
+  Offset _pan = Offset.zero;
+
+  // Zoom at the start of the active scale gesture, so cumulative scale deltas
+  // compose onto wherever the previous gesture left the view.
+  double _viewStartZoom = 1.0;
+
+  // Kept local to the view gesture rather than in CanvasConstants because they
+  // are private to this transform; hoist them if another screen ever zooms.
+  static const double _minZoom = 1.0;
+  static const double _maxZoom = 5.0;
 
   /// Current raster buffer dimensions. Drives the canvas widget's aspect ratio.
   Size get rasterSize => _rasterSize;
@@ -94,6 +109,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
+      zoom: _zoom,
+      pan: _pan,
     );
 
     if (tool == DrawingTool.fill) {
@@ -120,6 +137,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
+      zoom: _zoom,
+      pan: _pan,
     );
 
     if (current.isFreehand) {
@@ -145,6 +164,75 @@ class CanvasController extends ValueNotifier<CanvasState> {
     final stroke = value.activeStroke;
     if (stroke == null) return;
     _commitStroke(stroke);
+  }
+
+  /// Discards the in-progress stroke without committing it or touching history.
+  ///
+  /// Called when a one-finger draw escalates to a two-finger navigation
+  /// gesture: the stroke finger one began must be thrown away here, because
+  /// otherwise it stays active and the eventual pointer-up commits it as a
+  /// stray mark — the exact failure that sank the previous zoom attempt.
+  void cancelStroke() {
+    if (!_initialised) return;
+    if (value.activeStroke == null) return;
+    _notify(value.committedImage, null);
+  }
+
+  /// Snapshots the current zoom as the baseline for an incoming scale gesture.
+  ///
+  /// Called on every scale-gesture start, including single-finger draws, so the
+  /// baseline is ready if the gesture later escalates to two fingers. Cumulative
+  /// scale in [updateView] is multiplied against this, so a pinch resumes from
+  /// wherever the last one ended instead of snapping back to 1.0.
+  void beginView() {
+    _viewStartZoom = _zoom;
+  }
+
+  /// Applies one frame of a two-finger navigation gesture.
+  ///
+  /// [scale] is cumulative since the gesture start; [focalPoint] and
+  /// [focalDelta] are in canvas-widget-local pixels. The new zoom is anchored
+  /// about the focal point so the content under the fingers stays put, then the
+  /// pan is clamped so the canvas cannot leave the viewport.
+  void updateView({
+    required double scale,
+    required Offset focalPoint,
+    required Offset focalDelta,
+  }) {
+    if (!_initialised) return;
+
+    final base = fitRasterInDisplay(
+      rasterSize: _rasterSize,
+      displaySize: _displaySize,
+    );
+    final centre = base.destination.center;
+
+    final z0 = _zoom;
+    final z1 = (_viewStartZoom * scale).clamp(_minZoom, _maxZoom);
+
+    final focalFromCentre = focalPoint - centre;
+    final pannedFromCentre = _pan + focalDelta;
+    // Keep the content under the focal point fixed across the zoom change:
+    // solve for the pan that holds that raster point in place as z0 -> z1.
+    final anchored =
+        focalFromCentre - (focalFromCentre - pannedFromCentre) * (z1 / z0);
+
+    _zoom = z1;
+    _pan = clampViewPan(
+      baseRect: base.destination,
+      displaySize: _displaySize,
+      zoom: z1,
+      pan: anchored,
+    );
+    _notify(value.committedImage, value.activeStroke);
+  }
+
+  /// Returns the viewport to 1:1, centred. Called whenever the canvas identity
+  /// changes (new drawing, loaded image) so it always opens un-zoomed.
+  void resetView() {
+    _zoom = 1.0;
+    _pan = Offset.zero;
+    _viewStartZoom = 1.0;
   }
 
   void undo() {
@@ -184,6 +272,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _undoStack.clear();
     _redoStack.clear();
     _dirty = false;
+    resetView();
     final blank = await CanvasCompositor.createBlank(_rasterSize);
     _notify(blank, null);
   }
@@ -201,6 +290,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _undoStack.clear();
     _redoStack.clear();
     _dirty = false;
+    resetView();
     _notify(image, null);
   }
 
@@ -273,6 +363,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
       isDirty: _dirty,
+      zoom: _zoom,
+      pan: _pan,
     );
   }
 
@@ -283,6 +375,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canUndo: value.canUndo,
       canRedo: value.canRedo,
       isDirty: _dirty,
+      zoom: _zoom,
+      pan: _pan,
     );
   }
 

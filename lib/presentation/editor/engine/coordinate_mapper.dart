@@ -10,19 +10,24 @@ import 'canvas_fit.dart';
 /// widget in logical pixels. [rasterSize] is the pixel dimensions of the
 /// underlying buffer, which may be any aspect ratio once an image is imported.
 ///
-/// The raster is fitted into the display with uniform scale and centred, so the
-/// inverse mapping removes the centring offset first, then divides by the same
-/// single scale the painter uses. Result is clamped to valid pixel indices so
-/// callers never index out of bounds, which also folds a touch in the
-/// letterbox margin onto the nearest edge pixel.
+/// [zoom] and [pan] apply the user's viewport transform; at their defaults the
+/// mapping is the plain contain-fit. The raster is fitted into the display with
+/// the same composed transform the painter draws with, so the inverse removes
+/// the composed centring offset, then divides by the composed scale. Result is
+/// clamped to valid pixel indices so callers never index out of bounds, which
+/// also folds a touch in the letterbox margin onto the nearest edge pixel.
 Offset localToRaster({
   required Offset localPosition,
   required Size displaySize,
   required Size rasterSize,
+  double zoom = 1.0,
+  Offset pan = Offset.zero,
 }) {
-  final fit = fitRasterInDisplay(
+  final fit = fitRasterWithView(
     rasterSize: rasterSize,
     displaySize: displaySize,
+    zoom: zoom,
+    pan: pan,
   );
 
   final rx = ((localPosition.dx - fit.destination.left) / fit.scale)
