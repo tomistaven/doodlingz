@@ -138,7 +138,7 @@ The output APK is at `build/app/outputs/flutter-apk/app-release.apk`.
 
 A pre-built APK is provided so the app can be tested without installing Flutter.
 
-**APK download:** [Google Drive — doodlingz.apk](LINK_HERE)
+**APK download:** [Google Drive — doodlingz.apk](https://drive.google.com/file/d/1fO8PFBLvdAaYrhiPoSLz_9Szo2HariqD/view?usp=drive_link)
 
 ---
 
