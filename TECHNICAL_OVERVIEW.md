@@ -66,11 +66,12 @@ The controller is **owned and created directly by `EditorScreen`**, not register
 `CanvasState` is the immutable snapshot the controller publishes:
 
 ```dart
-final ui.Image committedImage;   // last fully baked raster
-final Stroke?  activeStroke;      // in-progress vector overlay, or null
-final bool     canUndo;
-final bool     canRedo;
-final bool     isDirty;           // pixels changed since last save/load/reset
+final ui.Image    committedImage;   // last fully baked raster
+final Stroke?     activeStroke;      // in-progress vector overlay, or null
+final bool        canUndo;
+final bool        canRedo;
+final bool        isDirty;           // pixels changed since last save/load/reset
+final ViewTransform view;            // user zoom/pan; identity = plain contain-fit
 ```
 
 Because a pointer-move produces a new state every frame, the fields are kept minimal — the heavy `ui.Image` is passed by reference, not copied.
@@ -88,23 +89,29 @@ Bounding the *area* rather than the *dimensions* is what actually keeps flood-fi
 
 ## Coordinate Mapping
 
-Because the buffer and the display area can have different aspect ratios, the canvas is fitted into its display area with a single uniform scale and centred — the `BoxFit.contain` model. A single helper, `fitRasterInDisplay()` (`engine/canvas_fit.dart`), computes that fit and is the **one** source of truth shared by the painter and the coordinate mapper. If those two computed the fit independently they would drift apart whenever the ratios differed, stretching the image in one place while mapping touches against another.
+Because the buffer and the display area can have different aspect ratios, the canvas is fitted into its display area with a single uniform scale and centred — the `BoxFit.contain` model. A single helper, `fitRasterInDisplay()` (`engine/canvas_fit.dart`), computes that base fit and is the **one** source of truth shared by the painter and the coordinate mapper.
 
-`localToRaster()` (`engine/coordinate_mapper.dart`) inverts that fit to convert a pointer position in the rendered widget's local space into a raster coordinate:
+When the user zooms or pans, a `ViewTransform` (zoom factor + pan offset) is composed on top of the base fit by `fitRasterWithView()` in the same file. Both the painter and the mapper call this composed version — never the base fit directly while a transform is active — so the rendered image and the touch mapping stay locked to the same geometry. `ViewTransform.applyGesture()` handles the focal-anchored zoom math (keeping the content under the pinch fingers fixed as the zoom changes) and clamps the pan so the canvas cannot be dragged off-screen.
+
+`localToRaster()` (`engine/coordinate_mapper.dart`) inverts the composed fit to convert a pointer position in the rendered widget's local space into a raster coordinate:
 
 ```dart
-fit = fitRasterInDisplay(rasterSize, displaySize)  // uniform scale + centred rect
+fit = fitRasterWithView(rasterSize, displaySize, zoom, pan)  // composed fit
 rx = ((localPosition.dx - fit.destination.left) / fit.scale).clamp(0, rasterSize.width  - 1)
 ry = ((localPosition.dy - fit.destination.top)  / fit.scale).clamp(0, rasterSize.height - 1)
 ```
 
-It removes the centring offset first, then divides by the single uniform scale. The clamp guarantees every returned coordinate is a valid index into the raw byte buffer, so callers — particularly the flood fill seed — can never read out of bounds; it also folds a touch that lands in the letterbox margin onto the nearest edge pixel. In practice the canvas widget is itself constrained to the buffer's aspect ratio (via `Center` + `AspectRatio` in `EditorScreen`), so the fit usually resolves to a zero offset — the drawable area *is* the canvas, and the surrounding margin is non-drawable app background. The controller stores the current display size and refreshes it via `updateDisplaySize()` when the canvas is resized, rotated, or reshaped by an import.
+The clamp guarantees every returned coordinate is a valid index into the raw byte buffer regardless of zoom level. When the view is at identity (zoom 1, pan zero), `fitRasterWithView` returns the untouched base fit, so there is no overhead for the common no-zoom case. The painter clips to the canvas widget bounds at the top of `paint()` so zoomed pixels can never spill over the paper border into the desk margin.
 
 ---
 
 ## Drawing Tools
 
 Every tool ends up as a `Stroke` that is committed by `CanvasCompositor`. The compositor draws the existing committed image into a fresh `PictureRecorder`, draws the new stroke on top, and returns a new `ui.Image` — the input image is never mutated, which keeps the undo stack's snapshots clean.
+
+### Single rendering source of truth
+
+All per-tool rendering logic — paint building, path construction, spray dot scatter, shape drawing — lives in `engine/stroke_renderer.dart`. Both the live preview (`DrawingCanvasPainter`) and the raster commit (`CanvasCompositor`) call the same functions from this file. Previously the logic was duplicated: the spray tool was a real-world example of the failure mode — spray committed as a solid connected line while previewing correctly as scattered dots, because the preview was fixed without updating the commit path. Shape corners previewed rounded but committed mitered for the same reason (the compositor's independent `Paint` never set `StrokeJoin`). Routing both paths through one file makes that class of drift structurally impossible.
 
 ### Brush
 
@@ -148,7 +155,7 @@ Shapes are two-point strokes: the pointer-down position and the current pointer 
 - **ellipse** → `drawOval(rect)` (a circle falls out of a square rect)
 - **triangle** → a `Path` from the rect's top-centre to its two bottom corners
 
-All four are stroked outlines with a selectable width. The compositor uses a small private `_ShapeTool` enum so the rendering switch doesn't depend on the full `DrawingTool` enum.
+All four are stroked outlines with a selectable width, drawn with `StrokeJoin.round` so corners match the rounded look of the brush and highlighter.
 
 ---
 
@@ -184,7 +191,18 @@ A faint fringe pixel (mostly target color) gets mostly filled; a solid boundary 
 
 A `processedMask` ensures each edge pixel is blended at most once even when the fill reaches it from several directions, and the input buffer is copied rather than mutated so the caller's snapshot stays intact.
 
-### Straight versus premultiplied alpha
+### Opaque buffer invariant
+
+The fill writes the result of `srcOver` compositing — blending the fill color over the existing pixel — rather than stamping the fill color's raw RGBA directly. Writing a fill color with alpha < 255 directly into the buffer stores genuinely transparent pixels, which look correct on screen (the white desk behind the canvas shows through) but break on export and in gallery thumbnails where there is no white background to composite against. The same failure mode affected the eraser via `BlendMode.clear` and was fixed the same way: the raster buffer must stay fully opaque, and any transparency must be simulated by compositing against the existing pixel at write time.
+
+Since the canvas is always opaque (`dstA = 255`), the per-channel `srcOver` formula reduces to:
+
+```dart
+out = (fillChannel * fillA + dstChannel * (255 - fillA)) / 255
+outA = 255
+```
+
+This is applied at both write sites in the fill: the main fill path and the edge-blend path.
 
 `CanvasCompositor.commitFill` extracts pixels with `ImageByteFormat.rawStraightRgba`, **not** `rawRgba`. The raw format returns premultiplied channels, where the blend math above would be comparing color values that have already been scaled by alpha and would give wrong closeness ratios. Straight (un-premultiplied) RGBA gives the true channel values the comparison and `lerp` assume. The fill seed coordinate is `round`ed and `clamp`ed rather than truncated, so the click lands on the intended pixel.
 

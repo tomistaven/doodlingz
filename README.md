@@ -74,6 +74,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 
 | Feature | What it does |
 | --- | --- |
+| **Pinch-to-zoom and pan** | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan. Drawing with one finger works normally at any zoom level. The view resets to 1:1 when opening a new or saved drawing. |
 | **Redo** | Full redo stack — restores steps undone in the current session |
 | **Left-handed mode** | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
 | **Export to device gallery** | Saves the drawing into a `Doodlingz` album in the device photo gallery (via `gal`) |
@@ -95,7 +96,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | `shared_preferences` | Persists theme mode, hub handedness, and the onboarding setting |
 | `path_provider` | Resolves the app documents directory for PNG storage |
 | `intl` | `DateFormat` for timestamp-based filenames |
-| `google_fonts` | Mansalva for body text, Lacquer for the app-bar wordmark |
+| `google_fonts` | Mansalva for body text, Lacquer for the app-bar wordmark — bundled locally in `google_fonts/` with runtime fetching disabled so the fonts are guaranteed available offline from a fresh install |
 | `flex_color_picker` | Color wheel dialog with hex input and opacity slider |
 | `gal` | Exports a drawing into the device photo gallery |
 | `image_picker` | Imports a photo from the device gallery onto the canvas |
@@ -130,7 +131,7 @@ No code generation step is required — the project has no `build_runner` depend
 flutter build apk --release
 ```
 
-The output APK is at `build/app/outputs/flutter-apk/app-release.apk`.
+The output APK is at `build/app/outputs/apk/release/doodlingz-release.apk`.
 
 ---
 
@@ -138,7 +139,7 @@ The output APK is at `build/app/outputs/flutter-apk/app-release.apk`.
 
 A pre-built APK is provided so the app can be tested without installing Flutter.
 
-**APK download:** [Google Drive — doodlingz.apk](https://drive.google.com/file/d/1fO8PFBLvdAaYrhiPoSLz_9Szo2HariqD/view?usp=drive_link)
+**APK download:** [Google Drive — doodlingz.apk](LINK_HERE)
 
 ---
 
@@ -199,6 +200,10 @@ The white canvas fills the screen. Draw by dragging your finger. The tool hub ha
 ### Tool hub
 
 Tap the circular handle in the bottom corner to open the hub. The root level shows three category nodes: **Tools**, **Color**, and **Size**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root. The size node is hidden when the fill tool is active. Tap the handle again or the scrim to close without changing anything.
+
+### Zooming and panning
+
+Pinch with two fingers to zoom in up to 5×. Drag with two fingers to pan the canvas while zoomed. All drawing tools work normally at any zoom level — use zoom to place precise strokes or fine details. The view resets to 1:1 when you open a new drawing, load from the gallery, or import an image.
 
 ### Shapes
 
