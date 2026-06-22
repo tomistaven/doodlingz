@@ -1,8 +1,3 @@
-import 'dart:ui';
-
-import '../../../domain/entities/drawing_tool.dart';
-import 'stroke.dart';
-
 /// Single source of truth for how each [DrawingTool] is drawn onto a [Canvas].
 ///
 /// Used by both `DrawingCanvasPainter` (live preview, every pointer-move
@@ -14,11 +9,17 @@ import 'stroke.dart';
 /// of bug structurally impossible: there is only one implementation to drift
 /// from.
 ///
-/// Takes a plain [Canvas] because `dart:ui`'s [Canvas] and
+/// Every function takes a plain [Canvas] because `dart:ui`'s [Canvas] and
 /// `package:flutter/material.dart`'s re-export are the same type — both the
 /// painter (UI-thread `CustomPainter`) and the compositor
 /// (`PictureRecorder`-backed) can call these directly.
-///
+library;
+
+import 'dart:ui';
+
+import '../../../domain/entities/drawing_tool.dart';
+import 'stroke.dart';
+
 /// Builds the [Paint] for a freehand or shape stroke.
 ///
 /// Highlighter gets a multiply blend mode and reduced alpha so overlapping
