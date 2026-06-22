@@ -118,10 +118,15 @@ Uint8List floodFill(FloodFillParams params) {
       continue;
     }
 
-    pixels[idx] = fillR;
-    pixels[idx + 1] = fillG;
-    pixels[idx + 2] = fillB;
-    pixels[idx + 3] = fillA;
+    // Composite the fill color over the existing pixel using srcOver so the
+    // raster buffer stays fully opaque. Writing fillA directly would store
+    // transparent pixels, which look correct on screen (white desk behind
+    // them) but break on export and in the gallery — the same failure mode
+    // as the BlendMode.clear eraser bug.
+    pixels[idx] = _srcOver(pixels[idx], fillR, fillA);
+    pixels[idx + 1] = _srcOver(pixels[idx + 1], fillG, fillA);
+    pixels[idx + 2] = _srcOver(pixels[idx + 2], fillB, fillA);
+    pixels[idx + 3] = 255;
 
     if (x + 1 < width) queue.add(pos + 1);
     if (x - 1 >= 0) queue.add(pos - 1);
@@ -165,14 +170,21 @@ void _blendEdgePixel({
   final closeness = 1.0 - (worstDiff / 255.0);
   if (closeness <= 0.0) return;
 
-  pixels[idx] = _lerp(r, fillR, closeness);
-  pixels[idx + 1] = _lerp(g, fillG, closeness);
-  pixels[idx + 2] = _lerp(b, fillB, closeness);
-  pixels[idx + 3] = _lerp(a, fillA, closeness);
+  final blendedFillA = (fillA * closeness).round().clamp(0, 255);
+  pixels[idx] = _srcOver(r, _lerp(r, fillR, closeness), blendedFillA);
+  pixels[idx + 1] = _srcOver(g, _lerp(g, fillG, closeness), blendedFillA);
+  pixels[idx + 2] = _srcOver(b, _lerp(b, fillB, closeness), blendedFillA);
+  pixels[idx + 3] = 255;
 }
 
 int _lerp(int from, int to, double t) =>
     (from + (to - from) * t).round().clamp(0, 255);
+
+// Composites [src] over [dst] for one channel, assuming dstA = 255 (the
+// canvas buffer is always opaque). Returns the composited value at full
+// opacity so the buffer stays opaque after any fill regardless of fillA.
+int _srcOver(int dst, int src, int srcA) =>
+    ((src * srcA + dst * (255 - srcA)) ~/ 255).clamp(0, 255);
 
 bool _withinTolerance(
   int r,
