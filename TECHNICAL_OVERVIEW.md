@@ -127,6 +127,8 @@ The eraser is **not** transparency. On pointer-down its stroke color is forced t
 
 This is deliberate. The task requires the eraser to *restore the affected area to the canvas's default color*, and the whole app assumes opaque canvases — gallery thumbnails and the re-open-for-edit flow both expect a solid background. An earlier attempt using `BlendMode.clear` with `saveLayer` sandboxing was reverted: it would have punched real holes in the buffer and produced transparent PNG exports, breaking that assumption. Painting white is the correct model here.
 
+Because the eraser's color is fixed, the hub's color node is suppressed when the eraser is active (`_showsColor()` in `editor_hub.dart`) — showing a color picker for a tool that ignores it would confuse the user.
+
 ### Spray
 
 This is the tool that most often trips people up on this task, because the obvious implementation — drawing one big translucent circle that scales with the tool size — looks like a blurry stamp, not an airbrush. Doodlingz scatters individual dots instead, with two details doing the work:

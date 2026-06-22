@@ -199,7 +199,7 @@ The white canvas fills the screen. Draw by dragging your finger. The tool hub ha
 
 ### Tool hub
 
-Tap the circular handle in the bottom corner to open the hub. The root level shows three category nodes: **Tools**, **Color**, and **Size**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root. The size node is hidden when the fill tool is active. Tap the handle again or the scrim to close without changing anything.
+Tap the circular handle in the bottom corner to open the hub. The root level shows up to three category nodes: **Tools**, **Color**, and **Size**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root. The size node is hidden when the fill tool is active (fill has no stroke width). The color node is hidden when the eraser is active (the eraser always paints the canvas background color, so the picker has no effect). Tap the handle again or the scrim to close without changing anything.
 
 ### Zooming and panning
 
@@ -239,7 +239,7 @@ Use **Export** in the editor to save the current drawing into a `Doodlingz` albu
 
 ### Settings
 
-Open the Settings tab to choose system, light, or dark theme, toggle **Move tool hub to right side** for left-handed use, toggle whether the onboarding overlay shows on startup, and replay the onboarding overlay on demand.
+Open the Settings tab to choose system, light, or dark theme, toggle **Move tool hub to right side**, toggle whether the onboarding overlay shows on startup, and replay the onboarding overlay on demand.
 
 ---
 
