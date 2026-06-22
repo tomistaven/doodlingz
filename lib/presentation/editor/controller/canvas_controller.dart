@@ -70,6 +70,12 @@ class CanvasController extends ValueNotifier<CanvasState> {
   Offset? _pendingFill;
   Color? _pendingFillColor;
 
+  // Spray flushes accumulated points into the raster mid-stroke to keep the
+  // painter's per-frame drawCircle count bounded. The undo snapshot must be
+  // taken once at pointer-down (before any flush), not per-flush, so the whole
+  // spray gesture stays a single undo step.
+  bool _sprayUndoSaved = false;
+
   /// Current raster buffer dimensions. Drives the canvas widget's aspect ratio.
   Size get rasterSize => _rasterSize;
 
@@ -133,10 +139,17 @@ class CanvasController extends ValueNotifier<CanvasState> {
       points: [rasterPoint],
     );
 
+    // Spray flushes mid-stroke, so the undo snapshot must be taken here at
+    // pointer-down — before any flush — so the whole gesture stays one undo step.
+    if (tool == DrawingTool.spray) {
+      _pushUndo(value.committedImage);
+      _sprayUndoSaved = true;
+    }
+
     _notifyWithStroke(stroke);
   }
 
-  void onPointerMove(Offset localPosition) {
+  Future<void> onPointerMove(Offset localPosition) async {
     if (!_initialised) return;
     final current = value.activeStroke;
     if (current == null) return;
@@ -151,7 +164,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
     if (current.isFreehand) {
       if (current.drawingTool == DrawingTool.spray) {
-        _addSprayPoints(current, rasterPoint);
+        await _addSprayPoints(current, rasterPoint);
         return;
       }
       _notifyWithStroke(current.withPoint(rasterPoint));
@@ -181,7 +194,9 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
     final stroke = value.activeStroke;
     if (stroke == null) return;
-    _commitStroke(stroke);
+    final sprayAlreadySaved = _sprayUndoSaved;
+    _sprayUndoSaved = false;
+    _commitStroke(stroke, skipUndoPush: sprayAlreadySaved);
   }
 
   /// Discards an in-progress action without committing it or touching history.
@@ -195,6 +210,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     if (!_initialised) return;
     _pendingFill = null;
     _pendingFillColor = null;
+    _sprayUndoSaved = false;
     if (value.activeStroke == null) return;
     _notify(value.committedImage, null);
   }
@@ -317,8 +333,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
   Future<Uint8List> toPngBytes() =>
       CanvasCompositor.toPngBytes(value.committedImage);
 
-  Future<void> _commitStroke(Stroke stroke) async {
-    _pushUndo(value.committedImage);
+  Future<void> _commitStroke(Stroke stroke, {bool skipUndoPush = false}) async {
+    if (!skipUndoPush) _pushUndo(value.committedImage);
     final next = stroke.isShape
         ? await CanvasCompositor.commitShape(value.committedImage, stroke)
         : await CanvasCompositor.commitStroke(value.committedImage, stroke);
@@ -335,7 +351,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(next, null);
   }
 
-  void _addSprayPoints(Stroke current, Offset centre) {
+  Future<void> _addSprayPoints(Stroke current, Offset centre) async {
     final random = Random();
     final radius = current.size;
     final newPoints = List.generate(CanvasConstants.sprayDensity, (_) {
@@ -344,17 +360,40 @@ class CanvasController extends ValueNotifier<CanvasState> {
       final distance = (random.nextDouble() * random.nextDouble()) * radius;
       return Offset(
         (centre.dx + cos(angle) * distance).clamp(0.0, _rasterSize.width - 1),
-        (centre.dy + sin(angle) * distance).clamp(0.0, _rasterSize.height - 1),
+        (centre.dy + sin(angle) * distance)
+            .clamp(0.0, _rasterSize.height - 1),
       );
     });
-    _notifyWithStroke(
-      Stroke(
-        drawingTool: current.drawingTool,
-        color: current.color,
-        size: current.size,
-        points: [...current.points, ...newPoints],
-      ),
+
+    final updated = Stroke(
+      drawingTool: current.drawingTool,
+      color: current.color,
+      size: current.size,
+      points: [...current.points, ...newPoints],
     );
+
+    if (updated.points.length >= CanvasConstants.sprayFlushThreshold) {
+      // Bake accumulated dots into the committed image and start a fresh
+      // active stroke. The undo snapshot was already saved at pointer-down,
+      // so this flush is invisible to the undo stack — the whole spray
+      // gesture stays a single undo step.
+      final flushed = await CanvasCompositor.commitStroke(
+        value.committedImage,
+        updated,
+      );
+      _notify(
+        flushed,
+        Stroke(
+          drawingTool: updated.drawingTool,
+          color: updated.color,
+          size: updated.size,
+          points: [],
+        ),
+      );
+      return;
+    }
+
+    _notifyWithStroke(updated);
   }
 
   void _pushUndo(ui.Image image) {

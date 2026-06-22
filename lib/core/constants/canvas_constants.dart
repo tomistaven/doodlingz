@@ -40,6 +40,12 @@ abstract final class CanvasConstants {
   // Dots scattered per spray tick; higher values give denser coverage per pass.
   static const int sprayDensity = 30;
 
+  // Flush accumulated spray points into the committed raster after this many
+  // points accumulate on the active stroke. Keeps the painter's per-frame
+  // drawCircle count bounded so long spray sessions don't accumulate lag.
+  // 150 = 5 ticks ≈ ~0.4 s at typical gesture rates before the first flush.
+  static const int sprayFlushThreshold = 150;
+
   // Undo depth. The task requires 5; the headroom is capped to bound total
   // snapshot memory (~3.5 MB per stored canvas state at this resolution).
   static const int maxHistorySteps = 20;
