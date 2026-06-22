@@ -94,10 +94,16 @@ void paintShape(Canvas canvas, Stroke stroke) {
     case DrawingTool.ellipse:
       canvas.drawOval(rect, paint);
     case DrawingTool.triangle:
+      // Apex follows the drag's vertical direction (drag down → points up,
+      // drag up → points down). Rect.fromPoints normalises start/end, so the
+      // raw points carry the direction the rect has discarded.
+      final pointsDown = end.dy < start.dy;
+      final apexY = pointsDown ? rect.bottom : rect.top;
+      final baseY = pointsDown ? rect.top : rect.bottom;
       final path = Path()
-        ..moveTo(rect.topCenter.dx, rect.topCenter.dy)
-        ..lineTo(rect.bottomLeft.dx, rect.bottomLeft.dy)
-        ..lineTo(rect.bottomRight.dx, rect.bottomRight.dy)
+        ..moveTo(rect.center.dx, apexY)
+        ..lineTo(rect.left, baseY)
+        ..lineTo(rect.right, baseY)
         ..close();
       canvas.drawPath(path, paint);
     case DrawingTool.brush:
