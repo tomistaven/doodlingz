@@ -6,17 +6,13 @@ A mobile drawing app that lets you sketch, paint, and save your ideas anywhere �
 
 ## Screenshots
 
-| Editor | Tools | Sizes |
-| --- | --- | --- |
-| ![White canvas with the tool hub handle](screenshots/01_editor.png) | ![Hub open at the tools level](screenshots/02_tools.png) | ![Size selector](screenshots/03_sizes.png) |
+| Drawing | Color Wheel | Colors & Tools | Hub & Sizes |
+| --- | --- | --- | --- |
+| ![A finished drawing using brush, shapes, spray, and fill](screenshots/01_drawing.jpg) | ![Color wheel with hex input and opacity slider](screenshots/02_color_wheel.jpg) | ![Hub expanded to color swatches and tool nodes](screenshots/03_colors_tools.jpg) | ![Hub root with category and size nodes](screenshots/04_hub_sizes.jpg) |
 
-| Color Picker | Drawing | Gallery |
-| --- | --- | --- |
-| ![Color picker](screenshots/04_color.png) | ![A finished drawing using brush, shapes, spray, and fill](screenshots/05_drawing.png) | ![Gallery grid of saved drawings](screenshots/06_gallery.png) |
-
-| Viewer | Settings | Onboarding |
-| --- | --- | --- |
-| ![Read-only viewer with the edit action](screenshots/07_viewer.png) | ![Settings screen](screenshots/08_settings.png) | ![Onboarding overlay](screenshots/09_onboarding.png) |
+| Gallery | Viewer | Onboarding | Settings |
+| --- | --- | --- | --- |
+| ![Gallery grid of saved drawings](screenshots/05_gallery.jpg) | ![Read-only viewer with the edit action](screenshots/06_viewer.jpg) | ![Onboarding overlay](screenshots/07_onboarding.jpg) | ![Settings screen](screenshots/08_settings.jpg) |
 
 ---
 
@@ -139,7 +135,7 @@ The output APK is at `build/app/outputs/apk/release/doodlingz-release.apk`.
 
 A pre-built APK is provided so the app can be tested without installing Flutter.
 
-**APK download:** [Google Drive — doodlingz.apk](LINK_HERE)
+**APK download:** [Google Drive — doodlingz.apk](https://drive.google.com/file/d/1fO8PFBLvdAaYrhiPoSLz_9Szo2HariqD/view?usp=drive_link)
 
 ---
 
