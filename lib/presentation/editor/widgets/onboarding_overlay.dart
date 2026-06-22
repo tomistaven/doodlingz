@@ -124,6 +124,7 @@ class _PageOneContent extends StatelessWidget {
         _HintRow(icon: Icons.palette_outlined, text: 'Tap the colour icon to pick a colour or open the wheel.'),
         _HintRow(icon: Icons.line_weight, text: 'Tap the size icon to change brush or stroke width.'),
         _HintRow(icon: Icons.undo, text: 'Use Undo and Redo in the toolbar at the top.'),
+        _HintRow(icon: Icons.pinch, text: 'Pinch with two fingers to zoom, and drag with two fingers to pan.'),
       ],
     );
   }

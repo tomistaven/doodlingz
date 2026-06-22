@@ -42,7 +42,6 @@ class SettingsScreen extends StatelessWidget {
               SwitchListTile(
                 secondary: const Icon(Icons.swap_horiz),
                 title: const Text('Move tool hub to right side'),
-                subtitle: const Text('For left-handed use'),
                 value: state.hubOnRight,
                 onChanged: (value) =>
                     context.read<SettingsCubit>().setHubOnRight(value: value),
