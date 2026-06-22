@@ -8,8 +8,10 @@ import 'canvas_fit.dart';
 class ViewTransform {
   const ViewTransform({required this.zoom, required this.pan});
 
-  static const ViewTransform identity =
-      ViewTransform(zoom: 1.0, pan: Offset.zero);
+  static const ViewTransform identity = ViewTransform(
+    zoom: 1.0,
+    pan: Offset.zero,
+  );
 
   final double zoom;
   final Offset pan;
@@ -43,7 +45,8 @@ class ViewTransform {
     // Solve for the pan that holds the raster point under the focal point fixed
     // as the zoom moves from the current value to newZoom.
     final anchored =
-        focalFromCentre - (focalFromCentre - pannedFromCentre) * (newZoom / zoom);
+        focalFromCentre -
+        (focalFromCentre - pannedFromCentre) * (newZoom / zoom);
 
     return ViewTransform(
       zoom: newZoom,

@@ -140,7 +140,8 @@ class _EditorHubState extends State<EditorHub>
         // the topmost node clips for a frame even though it fits at rest.
         const double openAnimationOvershoot = 1.08;
         final handleBottomMargin = _baseMargin + padding.bottom;
-        final maxReach = handleBottomMargin +
+        final maxReach =
+            handleBottomMargin +
             _handleSize / 2 +
             UiConstants.hubArcRadiusOuter * openAnimationOvershoot +
             _nodeSize / 2;
@@ -191,7 +192,9 @@ class _EditorHubState extends State<EditorHub>
                           behavior: HitTestBehavior.opaque,
                           onTap: closeHub,
                           child: ColoredBox(
-                            color: Colors.black.withValues(alpha: UiConstants.hubScrimOpacity),
+                            color: Colors.black.withValues(
+                              alpha: UiConstants.hubScrimOpacity,
+                            ),
                           ),
                         ),
                       ),
@@ -228,8 +231,9 @@ class _EditorHubState extends State<EditorHub>
   }) {
     final nodes = _nodeContentsForLevel(state);
     final count = nodes.length;
-    final t =
-        Curves.easeOutBack.transform(_animController.value.clamp(0.0, 1.0));
+    final t = Curves.easeOutBack.transform(
+      _animController.value.clamp(0.0, 1.0),
+    );
     final opacity = _animController.value.clamp(0.0, 1.0);
 
     return [
@@ -265,8 +269,11 @@ class _EditorHubState extends State<EditorHub>
     final int rowCount = isOuter ? (count - innerCount) : innerCount;
     final int rowIndex = isOuter ? index - innerCount : index;
 
-    final double targetRadius = (useTwoRows
-            ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
+    final double targetRadius =
+        (useTwoRows
+            ? (isOuter
+                  ? UiConstants.hubArcRadiusOuter
+                  : UiConstants.hubArcRadiusInner)
             : UiConstants.hubArcRadiusSingle) *
         radiusScale;
     final double distance = targetRadius * t;
@@ -333,8 +340,9 @@ class _EditorHubState extends State<EditorHub>
             .toList();
       case HubLevel.colors:
         return [
-          ...CanvasConstants.presetColors
-              .map((color) => buildSwatchNode(color, state.color == color)),
+          ...CanvasConstants.presetColors.map(
+            (color) => buildSwatchNode(color, state.color == color),
+          ),
           buildCustomNode(),
         ];
       case HubLevel.sizes:
@@ -391,7 +399,9 @@ class _EditorHubState extends State<EditorHub>
                 child: Center(
                   child: Icon(
                     handleIcon(state.tool),
-                    color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity),
+                    color: Colors.white.withValues(
+                      alpha: UiConstants.hubIconOpacity,
+                    ),
                     size: 24,
                   ),
                 ),

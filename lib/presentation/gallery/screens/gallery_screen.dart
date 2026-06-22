@@ -77,15 +77,12 @@ class _GalleryScreenState extends State<GalleryScreen>
                   icon: const Icon(Icons.close),
                   onPressed: exitSelection,
                 ),
-                title: Text(
-                  '${_selected!.length} selected',
-                ),
+                title: Text('${_selected!.length} selected'),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Delete selected',
-                    onPressed:
-                        _selected!.isEmpty ? null : deleteSelected,
+                    onPressed: _selected!.isEmpty ? null : deleteSelected,
                   ),
                 ],
               )
@@ -103,14 +100,14 @@ class _GalleryScreenState extends State<GalleryScreen>
           builder: (context, state) {
             return switch (state) {
               GalleryLoading() => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: CircularProgressIndicator(),
+              ),
               GalleryError(:final message) => Center(
-                  child: Text(
-                    'Could not load drawings\n$message',
-                    textAlign: TextAlign.center,
-                  ),
+                child: Text(
+                  'Could not load drawings\n$message',
+                  textAlign: TextAlign.center,
                 ),
+              ),
               GalleryLoaded(:final drawings) when drawings.isEmpty =>
                 const Center(
                   child: Column(
@@ -123,31 +120,30 @@ class _GalleryScreenState extends State<GalleryScreen>
                   ),
                 ),
               GalleryLoaded(:final drawings) => GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 3 / 4,
-                  ),
-                  itemCount: drawings.length,
-                  itemBuilder: (_, index) {
-                    final drawing = drawings[index];
-                    final isSelected =
-                        _selected?.contains(drawing.filePath) ?? false;
-                    return DrawingGridTile(
-                      drawing: drawing,
-                      isSelected: isSelected,
-                      onTap: _selecting
-                          ? () => _toggleSelection(drawing.filePath)
-                          : () => _openDrawing(drawing),
-                      onLongPress: _selecting
-                          ? () => _toggleSelection(drawing.filePath)
-                          : () => _enterSelection(drawing.filePath),
-                    );
-                  },
+                padding: const EdgeInsets.all(12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 3 / 4,
                 ),
+                itemCount: drawings.length,
+                itemBuilder: (_, index) {
+                  final drawing = drawings[index];
+                  final isSelected =
+                      _selected?.contains(drawing.filePath) ?? false;
+                  return DrawingGridTile(
+                    drawing: drawing,
+                    isSelected: isSelected,
+                    onTap: _selecting
+                        ? () => _toggleSelection(drawing.filePath)
+                        : () => _openDrawing(drawing),
+                    onLongPress: _selecting
+                        ? () => _toggleSelection(drawing.filePath)
+                        : () => _enterSelection(drawing.filePath),
+                  );
+                },
+              ),
             };
           },
         ),

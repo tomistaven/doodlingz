@@ -94,8 +94,17 @@ Uint8List floodFill(FloodFillParams params) {
     final b = pixels[idx + 2];
     final a = pixels[idx + 3];
 
-    if (!_withinTolerance(r, g, b, a, targetR, targetG, targetB, targetA,
-        params.tolerance)) {
+    if (!_withinTolerance(
+      r,
+      g,
+      b,
+      a,
+      targetR,
+      targetG,
+      targetB,
+      targetA,
+      params.tolerance,
+    )) {
       // Out of tolerance: an anti-aliased edge pixel. Blend it toward the
       // fill color by how close it already is to the target, rather than
       // either skipping it (leaves a gap) or fully filling it (bleeds).
@@ -163,7 +172,12 @@ void _blendEdgePixel({
   final diffG = (g - targetG).abs();
   final diffB = (b - targetB).abs();
   final diffA = (a - targetA).abs();
-  final worstDiff = [diffR, diffG, diffB, diffA].reduce((a, b) => a > b ? a : b);
+  final worstDiff = [
+    diffR,
+    diffG,
+    diffB,
+    diffA,
+  ].reduce((a, b) => a > b ? a : b);
 
   // 0.0 = as far from target as a channel can be (pure boundary, untouched).
   // 1.0 = identical to target (would already have passed tolerance above).

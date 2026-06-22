@@ -34,11 +34,13 @@ class EditorCubit extends Cubit<EditorState> {
   /// Called by [EditorScreen] once the controller has consumed the pending load.
   /// Records the active file path and clears the pending signal.
   void acknowledgeLoad(String? filePath) {
-    emit(state.copyWith(
-      clearPendingLoad: true,
-      clearFilePath: filePath == null,
-      currentFilePath: filePath,
-    ));
+    emit(
+      state.copyWith(
+        clearPendingLoad: true,
+        clearFilePath: filePath == null,
+        currentFilePath: filePath,
+      ),
+    );
   }
 
   /// Clears file path and any pending load — used when starting a new drawing.

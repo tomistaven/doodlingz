@@ -61,10 +61,7 @@ Offset clampViewPan({
   final overflowY = (baseRect.height * zoom - displaySize.height) / 2;
   final maxX = overflowX > 0 ? overflowX : 0.0;
   final maxY = overflowY > 0 ? overflowY : 0.0;
-  return Offset(
-    pan.dx.clamp(-maxX, maxX),
-    pan.dy.clamp(-maxY, maxY),
-  );
+  return Offset(pan.dx.clamp(-maxX, maxX), pan.dy.clamp(-maxY, maxY));
 }
 
 /// The contain-fit with a user [zoom] and [pan] composed on top, scaled about

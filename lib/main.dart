@@ -10,10 +10,10 @@ import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Force Google Fonts to use the bundled assets only to guarantee offline support
   GoogleFonts.config.allowRuntimeFetching = false;
-  
+
   await initDependencies();
   runApp(const DoodlingzApp());
 }

@@ -68,8 +68,12 @@ abstract final class UiConstants {
   static const double overlayCardRadius = 16;
 
   /// Padding inside the onboarding card.
-  static const EdgeInsets overlayCardPadding =
-      EdgeInsets.fromLTRB(24, 28, 24, 20);
+  static const EdgeInsets overlayCardPadding = EdgeInsets.fromLTRB(
+    24,
+    28,
+    24,
+    20,
+  );
 
   /// Horizontal margin between the onboarding card and screen edges.
   static const double overlayHorizontalMargin = 32;
@@ -77,7 +81,7 @@ abstract final class UiConstants {
   /// Fixed height of the tool-reference list on page 2 of the overlay.
   static const double overlayToolListHeight = 240;
 
-  // Splash 
+  // Splash
 
   /// Total time the splash screen is shown before navigating to [AppShell].
   static const Duration splashDuration = Duration(milliseconds: 1400);

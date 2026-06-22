@@ -30,10 +30,14 @@ Offset localToRaster({
     pan: pan,
   );
 
-  final rx = ((localPosition.dx - fit.destination.left) / fit.scale)
-      .clamp(0.0, rasterSize.width - 1);
-  final ry = ((localPosition.dy - fit.destination.top) / fit.scale)
-      .clamp(0.0, rasterSize.height - 1);
+  final rx = ((localPosition.dx - fit.destination.left) / fit.scale).clamp(
+    0.0,
+    rasterSize.width - 1,
+  );
+  final ry = ((localPosition.dy - fit.destination.top) / fit.scale).clamp(
+    0.0,
+    rasterSize.height - 1,
+  );
 
   return Offset(rx, ry);
 }

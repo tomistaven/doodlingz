@@ -42,9 +42,9 @@ class SettingsState extends Equatable {
 
   @override
   List<Object> get props => [
-        themeMode,
-        hubOnRight,
-        showTutorialOnStartup,
-        pendingTutorial,
-      ];
+    themeMode,
+    hubOnRight,
+    showTutorialOnStartup,
+    pendingTutorial,
+  ];
 }

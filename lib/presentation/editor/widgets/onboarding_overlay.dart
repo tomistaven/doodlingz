@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class OnboardingOverlay extends StatefulWidget {
-  const OnboardingOverlay({
-    super.key,
-    required this.onDismiss,
-  });
+  const OnboardingOverlay({super.key, required this.onDismiss});
 
   final VoidCallback onDismiss;
 
@@ -35,7 +32,8 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
     final textTheme = Theme.of(context).textTheme;
 
     // Detect landscape to tighten up vertical spacing
-    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: _isClosing ? 0.0 : 1.0),
@@ -65,7 +63,9 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: 450,
-                        maxHeight: isLandscape ? MediaQuery.sizeOf(context).height * 0.95 : 480,
+                        maxHeight: isLandscape
+                            ? MediaQuery.sizeOf(context).height * 0.95
+                            : 480,
                       ),
                       child: Material(
                         color: const Color(0xFF242424),
@@ -73,9 +73,9 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                         elevation: 8,
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
-                            24, 
-                            isLandscape ? 16 : 28, 
-                            24, 
+                            24,
+                            isLandscape ? 16 : 28,
+                            24,
                             isLandscape ? 12 : 20,
                           ),
                           child: Column(
@@ -105,7 +105,8 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                               ),
                               SizedBox(height: isLandscape ? 16 : 24),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   if (_currentPage == 1)
                                     TextButton(
@@ -115,8 +116,9 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                                   else
                                     const SizedBox.shrink(),
                                   FilledButton(
-                                    onPressed:
-                                        _currentPage == 0 ? _nextPage : _close,
+                                    onPressed: _currentPage == 0
+                                        ? _nextPage
+                                        : _close,
                                     child: Text(
                                       _currentPage == 0 ? 'Next' : 'Got it',
                                     ),
@@ -187,7 +189,8 @@ class _PageOneContentState extends State<_PageOneContent> {
           ),
           _HintRow(
             icon: Icons.pinch,
-            text: 'Pinch with two fingers to zoom, and drag with two '
+            text:
+                'Pinch with two fingers to zoom, and drag with two '
                 'fingers to pan.',
           ),
         ],

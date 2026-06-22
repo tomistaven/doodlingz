@@ -32,8 +32,9 @@ mixin HubNodes on State<EditorHub> {
       builder: (_) => BlocProvider.value(
         value: cubit,
         child: Dialog(
-          backgroundColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.00),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.00),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -63,10 +64,12 @@ mixin HubNodes on State<EditorHub> {
                       alignment: Alignment.centerRight,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 28,
@@ -107,21 +110,28 @@ mixin HubNodes on State<EditorHub> {
         onTap: onTap,
         color: UiConstants.hubSurface,
         borderColor: colorScheme.outline,
-        child: Icon(icon, color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity), size: 22),
+        child: Icon(
+          icon,
+          color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity),
+          size: 22,
+        ),
       ),
     );
   }
 
   Widget buildColorCategoryNode(Color current) {
-    final iconColor =
-        current.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
+    final iconColor = current.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
     return Tooltip(
       message: 'Colour',
       preferBelow: false,
       child: buildCircle(
         onTap: () => goTo(HubLevel.colors),
         color: current,
-        borderColor: Colors.white.withValues(alpha: UiConstants.hubColorNodeBorderOpacity),
+        borderColor: Colors.white.withValues(
+          alpha: UiConstants.hubColorNodeBorderOpacity,
+        ),
         child: Icon(Icons.palette, color: iconColor, size: 22),
       ),
     );

@@ -47,10 +47,18 @@ class EditorState extends Equatable {
     tool: tool ?? this.tool,
     color: color ?? this.color,
     strokeSize: strokeSize ?? this.strokeSize,
-    currentFilePath: clearFilePath ? null : (currentFilePath ?? this.currentFilePath),
+    currentFilePath: clearFilePath
+        ? null
+        : (currentFilePath ?? this.currentFilePath),
     pendingLoad: clearPendingLoad ? null : (pendingLoad ?? this.pendingLoad),
   );
 
   @override
-  List<Object?> get props => [tool, color, strokeSize, currentFilePath, pendingLoad];
+  List<Object?> get props => [
+    tool,
+    color,
+    strokeSize,
+    currentFilePath,
+    pendingLoad,
+  ];
 }

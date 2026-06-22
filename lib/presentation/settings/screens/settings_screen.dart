@@ -51,8 +51,9 @@ class SettingsScreen extends StatelessWidget {
                 title: const Text('Show tutorial on startup'),
                 subtitle: const Text('Displays the guide when opening the app'),
                 value: state.showTutorialOnStartup,
-                onChanged: (value) =>
-                    context.read<SettingsCubit>().setShowTutorialOnStartup(value: value),
+                onChanged: (value) => context
+                    .read<SettingsCubit>()
+                    .setShowTutorialOnStartup(value: value),
               ),
               ListTile(
                 leading: const Icon(Icons.replay),

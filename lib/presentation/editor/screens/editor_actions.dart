@@ -71,9 +71,9 @@ mixin EditorActions on State<EditorScreen> {
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
     }
   }
 
@@ -85,9 +85,9 @@ mixin EditorActions on State<EditorScreen> {
     sl<GalleryCubit>().load();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Drawing saved')));
     }
   }
 
@@ -184,15 +184,15 @@ mixin EditorActions on State<EditorScreen> {
     try {
       await Gal.putImageBytes(bytes, album: album);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exported to gallery')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exported to gallery')));
       }
     } on GalException catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gallery access denied')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Gallery access denied')));
       }
     }
   }

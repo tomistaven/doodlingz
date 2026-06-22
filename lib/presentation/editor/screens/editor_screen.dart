@@ -154,10 +154,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     _initCompleter.complete();
   }
 
-  Future<void> _handlePendingLoad(
-    Uint8List bytes,
-    String? filePath,
-  ) async {
+  Future<void> _handlePendingLoad(Uint8List bytes, String? filePath) async {
     final cubit = context.read<EditorCubit>();
 
     if (_controller.value.isDirty) {
@@ -250,14 +247,8 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                   onPressed: state.canRedo ? _controller.redo : null,
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.save),
-                onPressed: save,
-              ),
-              IconButton(
-                icon: const Icon(Icons.save_alt),
-                onPressed: export,
-              ),
+              IconButton(icon: const Icon(Icons.save), onPressed: save),
+              IconButton(icon: const Icon(Icons.save_alt), onPressed: export),
               IconButton(
                 icon: const Icon(Icons.more_vert),
                 onPressed: () => _showEditorMenu(context),
@@ -352,6 +343,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
       },
     );
   }
+
   Future<void> _showEditorMenu(BuildContext context) async {
     final action = await showModalBottomSheet<VoidCallback>(
       context: context,
