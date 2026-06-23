@@ -39,7 +39,9 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/icon/icon_foreground.png',
+              Theme.of(context).brightness == Brightness.light
+                  ? 'assets/icon/icon_foreground_dark.png'
+                  : 'assets/icon/icon_foreground.png',
               width: UiConstants.splashIconSize,
               height: UiConstants.splashIconSize,
             ),
