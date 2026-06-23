@@ -133,7 +133,7 @@ Because the eraser's color is fixed, the hub's color node is suppressed when the
 
 This is the tool that most often trips people up on this task, because the obvious implementation — drawing one big translucent circle that scales with the tool size — looks like a blurry stamp, not an airbrush. Doodlingz scatters individual dots instead, with two details doing the work:
 
-**The tool "size" is the scatter radius, not the dot size.** The two spray sizes (20 and 40) set how wide the cloud of dots spreads from the finger. The dots themselves are always a fine fixed 1.2px radius. So a bigger spray covers a wider area with the same fine grain, exactly like opening up an airbrush nozzle.
+**The tool "size" is the scatter radius, not the dot size.** The three spray sizes (20, 40 and 60) set how wide the cloud of dots spreads from the finger. The dots themselves are always a fine fixed 1.2px radius. So a bigger spray covers a wider area with the same fine grain, exactly like opening up an airbrush nozzle.
 
 **The distribution is center-weighted by multiplying two random values.** On each pointer-move tick, `_addSprayPoints` scatters `sprayDensity` (30) dots:
 
@@ -311,7 +311,7 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `canvasBorderColor` / `canvasBorderWidth` | `0x33FFFFFF` / 1 | Border around the canvas rect so the drawable area stands out |
 | `brushSizes` | 4 / 10 / 20 | Selectable brush and highlighter widths (raster px) |
 | `shapeOutlineWidths` | 3 / 6 / 12 | Selectable shape outline widths (raster px) |
-| `spraySizes` | 20 / 40 | Spray scatter radius (not dot size) |
+| `spraySizes` | 20 / 40 /60 | Spray scatter radius (not dot size) |
 | `sprayDensity` | 30 | Dots scattered per spray tick |
 | `maxHistorySteps` | 20 | Undo depth cap (task floor is 5; capped for memory) |
 | `fillColorTolerance` | 32 | Per-channel match tolerance before edge blending kicks in |

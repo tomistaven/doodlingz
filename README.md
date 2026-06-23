@@ -45,7 +45,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | --- | --- |
 | Brush | Freehand drawing in 3 sizes |
 | Eraser | Restores pixels to the white canvas color in 3 sizes |
-| Spray / Airbrush | Scattered-dot airbrush in 2 sizes |
+| Spray / Airbrush | Scattered-dot airbrush in 3 sizes |
 | Fill | Flood-fill any enclosed region or the whole canvas |
 | Straight line | Drag to draw a line, preview shown while dragging |
 | Rectangle | Drag to size; draw squares by dragging to equal sides |

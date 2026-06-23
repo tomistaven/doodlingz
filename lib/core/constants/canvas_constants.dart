@@ -35,7 +35,7 @@ abstract final class CanvasConstants {
 
   static const List<double> brushSizes = [4.0, 10.0, 20.0];
   static const List<double> shapeOutlineWidths = [3.0, 6.0, 12.0];
-  static const List<double> spraySizes = [20.0, 40.0];
+  static const List<double> spraySizes = [20.0, 40.0, 60.0];
 
   // Dots scattered per spray tick; higher values give denser coverage per pass.
   static const int sprayDensity = 30;
