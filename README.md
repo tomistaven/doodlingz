@@ -265,6 +265,12 @@ There is one editor instance for the whole app. The gallery and image import tri
 
 A fixed toolbar would permanently shrink the drawable area. The radial hub only occupies space when open, keeping the full canvas available while drawing, and is anchored to a corner so its arc is reachable with one thumb.
 
+| v1 — flat text toolbar | v2 — icon toolbar with colour picker |
+| --- | --- |
+| ![v1 flat text toolbar](screenshots/v1-flat-toolbar.jpg) | ![v2 icon toolbar with colour picker](screenshots/v2-icontoolbar-colorpicker.png) |
+
+Both versions kept the toolbar pinned above the canvas, permanently consuming screen space. The radial hub replaced both.
+
 ### Eraser as a white brush
 
 The eraser restores pixels to the canvas's fixed white color rather than using a transparency erase. This matches the requirement to restore the affected area to the default color and keeps the raster buffer — and exported PNGs — opaque.
