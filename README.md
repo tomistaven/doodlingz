@@ -82,6 +82,24 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 
 ---
 
+## Future Development
+
+| Feature | Notes |
+| --- | --- |
+| Grid overlay | Painter overlay only — no raster changes |
+| Canvas size picker | Extend the budget-bounded model with a new drawing dialog |
+| Rotate | Natural extension of `ViewTransform` alongside zoom and pan |
+| Mirror / symmetry | Horizontal and vertical — point reflection in `onPointerMove` |
+| Pixel art mode | Square brush, grid overlay, and snap-to-grid coordinate rounding |
+| Gradient tool | `Paint.shader` with `Gradient.linear` in `stroke_renderer` |
+| Pen pressure (touch) | Flutter pointer events carry a `pressure` field — device support varies |
+| Drawing tablet support | USB/Bluetooth stylus input via platform channel or `flutter_stylus` |
+| Layers | Significant architecture change — requires a buffer stack and a flattening compositor |
+| Vector brushes | Tapered ends, stroke smoothing, pressure curves — substantial stroke_renderer overhaul |
+| Masking | Blocked until layers are implemented |
+
+---
+
 ## Dependencies
 
 | Package | Purpose |
