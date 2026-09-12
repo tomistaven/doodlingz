@@ -125,7 +125,7 @@ Same path construction as the brush, but with `BlendMode.multiply` and the color
 
 The eraser is **not** transparency. On pointer-down its stroke color is forced to `CanvasConstants.canvasColor` (opaque white) and it then commits exactly like a brush stroke.
 
-This is deliberate. The task requires the eraser to *restore the affected area to the canvas's default color*, and the whole app assumes opaque canvases — gallery thumbnails and the re-open-for-edit flow both expect a solid background. An earlier attempt using `BlendMode.clear` with `saveLayer` sandboxing was reverted: it would have punched real holes in the buffer and produced transparent PNG exports, breaking that assumption. Painting white is the correct model here.
+This is deliberate. The eraser is meant to restore the affected area to the canvas's default color, and the whole app assumes opaque canvases — gallery thumbnails and the re-open-for-edit flow both expect a solid background. An earlier attempt using `BlendMode.clear` with `saveLayer` sandboxing was reverted: it would have punched real holes in the buffer and produced transparent PNG exports, breaking that assumption. Painting white is the correct model here.
 
 Because the eraser's color is fixed, the hub's color node is suppressed when the eraser is active (`_showsColor()` in `editor_hub.dart`) — showing a color picker for a tool that ignores it would confuse the user.
 
@@ -225,7 +225,7 @@ _dirty = true;        // single point where the drawing becomes dirty
 
 `undo()` pushes the current image onto the redo stack and pops the previous one back; `redo()` is the mirror. Both set `isDirty = true` — leaving the canvas dirty after an undo is intentional and matches desktop editors (Photoshop, Figma), where undoing is itself an unsaved change.
 
-The task requires 5 steps; `maxHistorySteps` is 20. The headroom is deliberately capped because each snapshot is a full-buffer RGBA image at the pixel budget (~3.5 MB at 874,800 px × 4 bytes), so an unbounded stack would grow memory without limit.
+`maxHistorySteps` is 20, giving comfortable headroom over a minimal undo depth. The cap is deliberate because each snapshot is a full-buffer RGBA image at the pixel budget (~3.5 MB at 874,800 px × 4 bytes), so an unbounded stack would grow memory without limit.
 
 `clear()` is a single undoable action — it pushes the current state, then swaps in a blank canvas at the *current* shape (clearing an imported wide canvas keeps it wide). `reset()` is different: it wipes both stacks and the dirty flag and rebuilds the canvas to fill the current editor area, so a new drawing returns to a screen-filling shape regardless of what an import left behind — the same state as a cold launch. `loadImage()` is parallel to `reset()` but with content instead of blank, and it adopts the loaded image's dimensions as the new raster size so the coordinate mapper, clear, and spray clamps all follow the imported shape.
 
@@ -313,7 +313,7 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `shapeOutlineWidths` | 3 / 6 / 12 | Selectable shape outline widths (raster px) |
 | `spraySizes` | 20 / 40 /60 | Spray scatter radius (not dot size) |
 | `sprayDensity` | 30 | Dots scattered per spray tick |
-| `maxHistorySteps` | 20 | Undo depth cap (task floor is 5; capped for memory) |
+| `maxHistorySteps` | 20 | Undo depth cap, sized for memory rather than left unbounded |
 | `fillColorTolerance` | 32 | Per-channel match tolerance before edge blending kicks in |
 | `presetColors` | 8 colors | Quick-access palette in the radial swatch menu |
 | `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |

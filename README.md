@@ -20,10 +20,9 @@ A mobile drawing app that lets you sketch, paint, and save your ideas anywhere �
 
 - [Project Overview](#project-overview)
 - [Feature Summary](#feature-summary)
-- [Bonus Features](#bonus-features)
+- [Future Development](#future-development)
 - [Dependencies](#dependencies)
 - [Setup and Installation](#setup-and-installation)
-- [Reviewer Guide](#reviewer-guide)
 - [Usage Guide](#usage-guide)
 - [Design Decisions and Challenges](#design-decisions-and-challenges)
 
@@ -39,7 +38,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 
 ## Feature Summary
 
-### Core Features
+### Drawing Tools
 
 | Feature | Description |
 | --- | --- |
@@ -50,35 +49,36 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Straight line | Drag to draw a line, preview shown while dragging |
 | Rectangle | Drag to size; draw squares by dragging to equal sides |
 | Ellipse | Drag to size; draw circles by dragging to equal sides |
+| Triangle | Drag to size, same gesture as rectangle and ellipse |
+| Highlighter | Semi-transparent stroke that multiplies onto what's beneath |
 | Color picker | 8 preset swatches plus a full wheel picker with hex input and opacity |
-| Undo | 20-step undo history |
-| Save | Saves the drawing as a PNG to local storage with a timestamp filename |
 
-### Extra Features
+### Canvas & Editing
 
-| Feature | Notes |
+| Feature | Description |
 | --- | --- |
-| Triangle shape tool | Extra shape — same drag-to-size gesture as rectangle and ellipse |
-| Highlighter tool | Extra tool — semi-transparent stroke that multiplies onto what's beneath |
+| Undo / Redo | 20-step undo history with a full redo stack |
+| Pinch-to-zoom and pan | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan. Drawing with one finger works normally at any zoom level. The view resets to 1:1 when opening a new or saved drawing |
+| New / clear canvas | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
+
+### Gallery & Files
+
+| Feature | Description |
+| --- | --- |
+| Save | Saves the drawing as a PNG to local storage with a timestamp filename |
 | Gallery | Grid of saved drawings from local storage, ordered newest-first by creation time |
 | Edit a saved drawing | Open any saved drawing, edit it, then save as a new file or overwrite the original |
-| Reviewer-ready APK | Pre-built APK on Google Drive; three install methods documented below |
+| Multi-select delete | Long-press a gallery tile to enter selection mode and delete several drawings at once |
+| Import an image | Pick a photo from the device gallery and open it on the canvas. The canvas reshapes to the image's aspect ratio (no crop, no distortion) so any photo — wide, tall, or square — imports cleanly |
+| Export to device gallery | Saves the drawing into a `Doodlingz` album in the device photo gallery (via `gal`) |
 
----
+### App Experience
 
-## Bonus Features
-
-| Feature | What it does |
+| Feature | Description |
 | --- | --- |
-| **Pinch-to-zoom and pan** | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan. Drawing with one finger works normally at any zoom level. The view resets to 1:1 when opening a new or saved drawing. |
-| **Redo** | Full redo stack — restores steps undone in the current session |
-| **Left-handed mode** | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
-| **Export to device gallery** | Saves the drawing into a `Doodlingz` album in the device photo gallery (via `gal`) |
-| **Import an image** | Pick a photo from the device gallery and open it on the canvas. The canvas reshapes to the image's aspect ratio (no crop, no distortion) so any photo — wide, tall, or square — imports cleanly |
-| **Multi-select delete** | Long-press a gallery tile to enter selection mode and delete several drawings at once |
-| **Onboarding overlay** | Two-page guide shown on first launch, replayable any time from Settings |
-| **New / clear canvas** | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
-| **Splash screen** | Brief branded launch screen — app icon, wordmark, and a loading indicator — shown before the editor opens |
+| Onboarding overlay | Two-page guide shown on first launch, replayable any time from Settings |
+| Splash screen | Brief branded launch screen — app icon, wordmark, and a loading indicator — shown before the editor opens |
+| Left-handed mode | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
 
 ---
 
@@ -121,8 +121,6 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 
 ## Setup and Installation
 
-Most reviewers should use the pre-built APK in the Reviewer Guide below. These steps are for building from source.
-
 ### Prerequisites
 
 - Flutter (stable channel) bundling Dart 3.12 or later — the project's SDK constraint is `^3.12.0`
@@ -146,58 +144,6 @@ flutter build apk --release
 ```
 
 The output APK is at `build/app/outputs/apk/release/doodlingz-release.apk`.
-
----
-
-## Reviewer Guide
-
-A pre-built APK is provided so the app can be tested without installing Flutter.
-
-**APK download:** [Google Drive — doodlingz.apk](https://drive.google.com/file/d/1fO8PFBLvdAaYrhiPoSLz_9Szo2HariqD/view?usp=drive_link)
-
----
-
-### Option 1: Install directly on an Android device
-
-#### Step 1 — Allow installation from outside the Play Store
-
-1. Open **Settings** on your device.
-2. Search for **"Install unknown apps"** or go to **Security → Install unknown apps**.
-3. Find **Chrome** and toggle **Allow from this source** on.
-
-#### Step 2 — Download and install
-
-1. On your Android phone, open **Chrome** and tap the Google Drive link above. Tap **Download**.
-2. Open the **Files** app → **Downloads**.
-3. Tap **doodlingz.apk** → **Install**. If Play Protect warns you, tap **Install anyway**.
-4. Find **Doodlingz** in your app drawer and launch it.
-
----
-
-### Option 2: Lightweight emulator (BlueStacks or NoxPlayer)
-
-#### BlueStacks
-
-1. Download from [bluestacks.com](https://www.bluestacks.com) and install.
-2. Drag and drop the APK onto the BlueStacks window — it installs automatically.
-3. Launch **Doodlingz** from the My Apps tab.
-
-#### NoxPlayer
-
-1. Download from [bignox.com](https://www.bignox.com) and install.
-2. Drag and drop the APK onto the NoxPlayer window, or use the APK installer in the toolbar.
-3. Launch **Doodlingz** from the home screen.
-
----
-
-### Option 3: Browser-based emulator (Appetize.io)
-
-1. Go to [appetize.io](https://appetize.io).
-2. Click **Upload** and select the APK.
-3. Click **Run** to start the virtual device in your browser.
-4. Click = tap, click-and-drag = swipe.
-
-Sessions time out after a few minutes of inactivity on the free tier. Refresh and click Run again to restart.
 
 ---
 
