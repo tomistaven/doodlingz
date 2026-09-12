@@ -79,6 +79,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Onboarding overlay | Two-page guide shown on first launch, replayable any time from Settings |
 | Splash screen | Brief branded launch screen — app icon, wordmark, and a loading indicator — shown before the editor opens |
 | Left-handed mode | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
+| Grid overlay | Painter overlay only — no raster changes |
 
 ---
 
@@ -86,7 +87,6 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 
 | Feature | Notes |
 | --- | --- |
-| Grid overlay | Painter overlay only — no raster changes |
 | Canvas size picker | Extend the budget-bounded model with a new drawing dialog |
 | Rotate | Natural extension of `ViewTransform` alongside zoom and pan |
 | Mirror / symmetry | Horizontal and vertical — point reflection in `onPointerMove` |
