@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controller/canvas_state.dart';
 import '../engine/canvas_fit.dart';
+import '../engine/grid_renderer.dart';
 import '../engine/stroke.dart';
 import '../engine/stroke_renderer.dart';
 
@@ -22,6 +23,10 @@ class DrawingCanvasPainter extends CustomPainter {
     canvas.clipRect(Offset.zero & size);
 
     _drawCommittedImage(canvas, size);
+
+    if (state.grid.visible) {
+      _drawGrid(canvas, size);
+    }
 
     final stroke = state.activeStroke;
     if (stroke != null && stroke.points.isNotEmpty) {
@@ -48,6 +53,23 @@ class DrawingCanvasPainter extends CustomPainter {
     final paint = Paint()..filterQuality = FilterQuality.high;
 
     canvas.drawImageRect(image, src, fit.destination, paint);
+  }
+
+  void _drawGrid(Canvas canvas, Size size) {
+    final image = state.committedImage;
+    final rasterSize = Size(image.width.toDouble(), image.height.toDouble());
+    final fit = fitRasterWithView(
+      rasterSize: rasterSize,
+      displaySize: size,
+      zoom: state.view.zoom,
+      pan: state.view.pan,
+    );
+
+    canvas.save();
+    canvas.translate(fit.destination.left, fit.destination.top);
+    canvas.scale(fit.scale, fit.scale);
+    paintGrid(canvas, rasterSize, state.grid);
+    canvas.restore();
   }
 
   void _drawOverlay(Canvas canvas, Size size, Stroke stroke) {

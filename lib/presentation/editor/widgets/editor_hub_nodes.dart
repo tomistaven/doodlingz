@@ -22,6 +22,8 @@ mixin HubNodes on State<EditorHub> {
   void selectTool(DrawingTool tool);
   void selectColor(Color color);
   void selectSize(double size);
+  void toggleGridVisible(bool visible);
+  void selectGridCellSize(double cellSize);
 
   void openCustomPicker() {
     final cubit = context.read<EditorCubit>();
@@ -190,6 +192,54 @@ mixin HubNodes on State<EditorHub> {
 
     return buildCircle(
       onTap: () => selectSize(size),
+      color: UiConstants.hubSurface,
+      borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
+      borderWidth: isSelected ? 3 : 1.5,
+      child: Container(
+        width: dotRadius * 2,
+        height: dotRadius * 2,
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : Colors.white,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  Widget buildGridToggleNode(bool visible) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: visible ? 'Hide grid' : 'Show grid',
+      preferBelow: false,
+      child: buildCircle(
+        onTap: () => toggleGridVisible(!visible),
+        color: UiConstants.hubSurface,
+        borderColor: visible ? colorScheme.primary : colorScheme.outline,
+        borderWidth: visible ? 3 : 1.5,
+        child: Icon(
+          Icons.grid_on,
+          color: visible ? colorScheme.primary : Colors.white,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  /// Same visual shape as [buildSizeNode] but calling [selectGridCellSize]
+  /// rather than [selectSize] — a dedicated node so grid cell selection can
+  /// never be misrouted into changing the active tool's stroke size.
+  Widget buildGridCellSizeNode(
+    double cellSize,
+    List<double> allSizes,
+    double currentCellSize,
+  ) {
+    final isSelected = cellSize == currentCellSize;
+    final colorScheme = Theme.of(context).colorScheme;
+    final maxSize = allSizes.reduce((a, b) => a > b ? a : b);
+    final dotRadius = 4.0 + (cellSize / maxSize) * 12.0;
+
+    return buildCircle(
+      onTap: () => selectGridCellSize(cellSize),
       color: UiConstants.hubSurface,
       borderColor: isSelected ? colorScheme.primary : colorScheme.outline,
       borderWidth: isSelected ? 3 : 1.5,

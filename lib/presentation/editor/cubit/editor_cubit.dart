@@ -22,6 +22,14 @@ class EditorCubit extends Cubit<EditorState> {
     emit(state.copyWith(strokeSize: size));
   }
 
+  void setGridVisible(bool visible) {
+    emit(state.copyWith(gridVisible: visible));
+  }
+
+  void setGridCellSize(double cellSize) {
+    emit(state.copyWith(gridCellSize: cellSize));
+  }
+
   /// Signals that a drawing should be loaded into the canvas.
   ///
   /// Sets [EditorState.pendingLoad] so [EditorScreen] can react via

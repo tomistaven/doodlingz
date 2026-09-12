@@ -37,6 +37,14 @@ abstract final class CanvasConstants {
   static const List<double> shapeOutlineWidths = [3.0, 6.0, 12.0];
   static const List<double> spraySizes = [20.0, 40.0, 60.0];
 
+  // Grid cell size options shown in the hub's Grid sub-menu, in raster pixels.
+  static const List<double> gridCellSizes = [8.0, 16.0, 32.0];
+
+  // Shared by EditorState's initial value and GridSettings.disabled, so the
+  // default grid spacing is defined once rather than duplicated across the
+  // cubit and engine layers.
+  static const double defaultGridCellSize = 16.0;
+
   // Dots scattered per spray tick; higher values give denser coverage per pass.
   static const int sprayDensity = 30;
 

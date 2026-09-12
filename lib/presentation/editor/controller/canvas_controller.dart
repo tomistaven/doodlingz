@@ -9,6 +9,7 @@ import '../../../domain/entities/drawing_tool.dart';
 import '../engine/canvas_compositor.dart';
 import '../engine/canvas_fit.dart';
 import '../engine/coordinate_mapper.dart';
+import '../engine/grid_renderer.dart';
 import '../engine/stroke.dart';
 import '../engine/view_transform.dart';
 import 'canvas_state.dart';
@@ -53,6 +54,11 @@ class CanvasController extends ValueNotifier<CanvasState> {
   // User viewport transform. ViewTransform.identity is the plain contain-fit,
   // in which state the painter and mapper take their pre-zoom fast path.
   ViewTransform _view = ViewTransform.identity;
+
+  // Grid overlay state. Threaded through both _notify and _notifyWithStroke
+  // like _view — omitting it from either would reset the grid to disabled
+  // on the next pointer-move frame, since _notifyWithStroke fires every drag.
+  GridSettings _grid = GridSettings.disabled;
 
   // Zoom at the start of the active scale gesture, so cumulative scale deltas
   // in applyGesture compose onto wherever the previous gesture left the view.
@@ -108,6 +114,18 @@ class CanvasController extends ValueNotifier<CanvasState> {
   /// it. A plain field assignment with no notify, safe to call during build.
   void setEditorArea(Size area) {
     _editorArea = area;
+  }
+
+  /// Toggles the grid overlay on or off.
+  void setGridVisible(bool visible) {
+    _grid = GridSettings(visible: visible, cellSize: _grid.cellSize);
+    _notify(value.committedImage, value.activeStroke);
+  }
+
+  /// Sets the grid cell size in raster pixels.
+  void setGridCellSize(double cellSize) {
+    _grid = GridSettings(visible: _grid.visible, cellSize: cellSize);
+    _notify(value.committedImage, value.activeStroke);
   }
 
   void onPointerDown(
@@ -416,6 +434,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canRedo: _redoStack.isNotEmpty,
       isDirty: _dirty,
       view: _view,
+      grid: _grid,
     );
   }
 
@@ -427,6 +446,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       canRedo: value.canRedo,
       isDirty: _dirty,
       view: _view,
+      grid: _grid,
     );
   }
 

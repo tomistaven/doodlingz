@@ -13,7 +13,7 @@ import '../cubit/editor_state.dart';
 import 'editor_hub_nodes.dart';
 
 // Public so the HubNodes mixin can reference it across files.
-enum HubLevel { root, tools, colors, sizes }
+enum HubLevel { root, tools, colors, sizes, grid }
 
 /// Floating radial control hub for the editor.
 ///
@@ -103,6 +103,16 @@ class _EditorHubState extends State<EditorHub>
   void selectSize(double size) {
     context.read<EditorCubit>().selectSize(size);
     closeHub();
+  }
+
+  @override
+  void toggleGridVisible(bool visible) {
+    context.read<EditorCubit>().setGridVisible(visible);
+  }
+
+  @override
+  void selectGridCellSize(double cellSize) {
+    context.read<EditorCubit>().setGridCellSize(cellSize);
   }
 
   List<double> _sizesFor(DrawingTool tool) {
@@ -333,6 +343,11 @@ class _EditorHubState extends State<EditorHub>
               onTap: () => goTo(HubLevel.sizes),
               tooltip: 'Size',
             ),
+          buildCategoryNode(
+            icon: Icons.grid_on,
+            onTap: () => goTo(HubLevel.grid),
+            tooltip: 'Grid',
+          ),
         ];
       case HubLevel.tools:
         return DrawingTool.values
@@ -348,6 +363,17 @@ class _EditorHubState extends State<EditorHub>
         return sizes
             .map((size) => buildSizeNode(size, sizes, state.strokeSize))
             .toList();
+      case HubLevel.grid:
+        return [
+          buildGridToggleNode(state.gridVisible),
+          ...CanvasConstants.gridCellSizes.map(
+            (cellSize) => buildGridCellSizeNode(
+              cellSize,
+              CanvasConstants.gridCellSizes,
+              state.gridCellSize,
+            ),
+          ),
+        ];
     }
   }
 

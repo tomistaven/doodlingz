@@ -13,6 +13,8 @@ class EditorState extends Equatable {
     required this.strokeSize,
     this.currentFilePath,
     this.pendingLoad,
+    this.gridVisible = false,
+    this.gridCellSize = CanvasConstants.defaultGridCellSize,
   });
 
   final DrawingTool tool;
@@ -29,6 +31,15 @@ class EditorState extends Equatable {
   /// Cleared by [EditorCubit.acknowledgeLoad] once the controller has consumed it.
   final ({Uint8List bytes, String? filePath})? pendingLoad;
 
+  /// Whether the grid overlay is shown. Synced to [CanvasController] by
+  /// [EditorScreen] via a [BlocListener], mirroring the existing tool/color/
+  /// size flow rather than the cubit touching the controller directly.
+  final bool gridVisible;
+
+  /// Grid cell size in raster pixels. Synced to [CanvasController] the same
+  /// way as [gridVisible].
+  final double gridCellSize;
+
   static EditorState initial() => EditorState(
     tool: DrawingTool.brush,
     color: CanvasConstants.defaultToolColor,
@@ -43,6 +54,8 @@ class EditorState extends Equatable {
     ({Uint8List bytes, String? filePath})? pendingLoad,
     bool clearFilePath = false,
     bool clearPendingLoad = false,
+    bool? gridVisible,
+    double? gridCellSize,
   }) => EditorState(
     tool: tool ?? this.tool,
     color: color ?? this.color,
@@ -51,6 +64,8 @@ class EditorState extends Equatable {
         ? null
         : (currentFilePath ?? this.currentFilePath),
     pendingLoad: clearPendingLoad ? null : (pendingLoad ?? this.pendingLoad),
+    gridVisible: gridVisible ?? this.gridVisible,
+    gridCellSize: gridCellSize ?? this.gridCellSize,
   );
 
   @override
@@ -60,5 +75,7 @@ class EditorState extends Equatable {
     strokeSize,
     currentFilePath,
     pendingLoad,
+    gridVisible,
+    gridCellSize,
   ];
 }

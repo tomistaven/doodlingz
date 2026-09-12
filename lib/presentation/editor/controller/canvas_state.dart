@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import '../engine/grid_renderer.dart';
 import '../engine/stroke.dart';
 import '../engine/view_transform.dart';
 
@@ -16,6 +17,7 @@ class CanvasState {
     required this.canRedo,
     required this.isDirty,
     this.view = ViewTransform.identity,
+    this.grid = GridSettings.disabled,
   });
 
   /// The last fully committed raster buffer. Displayed as the canvas background.
@@ -36,4 +38,8 @@ class CanvasState {
   /// `fitRasterWithView` so the painter renders the zoomed view from the same
   /// transform the coordinate mapper inverts.
   final ViewTransform view;
+
+  /// Grid overlay visibility and cell size. Rendered by `DrawingCanvasPainter`
+  /// in the same raster-space transform block as the stroke overlay.
+  final GridSettings grid;
 }
