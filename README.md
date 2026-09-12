@@ -131,8 +131,8 @@ Most reviewers should use the pre-built APK in the Reviewer Guide below. These s
 ### Steps
 
 ```bash
-git clone
-cd pixel-painter
+git clone https://github.com/tomistaven/doodlingz.git
+cd doodlingz
 flutter pub get
 flutter run
 ```
