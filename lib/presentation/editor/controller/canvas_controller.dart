@@ -61,14 +61,21 @@ class CanvasController extends ValueNotifier<CanvasState> {
   // on the next pointer-move frame, since _notifyWithStroke fires every drag.
   GridSettings _grid = GridSettings.disabled;
 
-  // Zoom at the start of the active scale gesture, so cumulative scale deltas
-  // in applyGesture compose onto wherever the previous gesture left the view.
+  // Zoom and rotation at the start of the active scale gesture, so cumulative
+  // deltas in applyGesture compose onto wherever the previous gesture left the
+  // view.
   double _viewStartZoom = 1.0;
+  double _viewStartRotation = 0.0;
 
   // Kept local to the view gesture rather than in CanvasConstants because they
   // are private to this transform; hoist them if another screen ever zooms.
   static const double _minZoom = 1.0;
   static const double _maxZoom = 5.0;
+
+  // Angles within this of upright snap to exactly zero. Two fingers cannot
+  // reliably land on 0.0, so without a detent an un-rotated canvas would be
+  // unreachable once turned and the identity fast path would never re-engage.
+  static const double _rotationDetent = 4 * pi / 180;
 
   // Fill is deferred from pointer-down to pointer-up. Unlike every other tool it
   // mutated the raster on touch-down, which fired before a second finger could
@@ -145,6 +152,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       rasterSize: _rasterSize,
       zoom: _view.zoom,
       pan: _view.pan,
+      rotation: _view.rotation,
     );
 
     if (isPixelArt) {
@@ -187,6 +195,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
       rasterSize: _rasterSize,
       zoom: _view.zoom,
       pan: _view.pan,
+      rotation: _view.rotation,
     );
 
     if (current.isPixelArt) {
@@ -246,24 +255,29 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(value.committedImage, null);
   }
 
-  /// Snapshots the current zoom as the baseline for an incoming scale gesture.
+  /// Snapshots the current zoom and rotation as the baseline for an incoming
+  /// scale gesture.
   ///
   /// Called on every scale-gesture start, including single-finger draws, so the
   /// baseline is ready if the gesture later escalates to two fingers. Cumulative
-  /// scale in [updateView] is multiplied against this, so a pinch resumes from
-  /// wherever the last one ended instead of snapping back to 1.0.
+  /// scale and rotation in [updateView] compose against these, so a gesture
+  /// resumes from wherever the last one ended instead of snapping back to the
+  /// upright 1.0 view.
   void beginView() {
     _viewStartZoom = _view.zoom;
+    _viewStartRotation = _view.rotation;
   }
 
   /// Applies one frame of a two-finger navigation gesture.
   ///
-  /// [scale] is cumulative since the gesture start; [focalPoint] and
-  /// [focalDelta] are in canvas-widget-local pixels. The focal-anchored zoom
-  /// and pan-clamp math lives in [ViewTransform.applyGesture] so it can be
-  /// tested as pure geometry independent of the controller.
+  /// [scale] and [rotation] are cumulative since the gesture start;
+  /// [focalPoint] and [focalDelta] are in canvas-widget-local pixels. The
+  /// focal-anchored zoom/rotation and pan-clamp math lives in
+  /// [ViewTransform.applyGesture] so it can be tested as pure geometry
+  /// independent of the controller.
   void updateView({
     required double scale,
+    required double rotation,
     required Offset focalPoint,
     required Offset focalDelta,
   }) {
@@ -277,21 +291,26 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _view = _view.applyGesture(
       startZoom: _viewStartZoom,
       scale: scale,
+      startRotation: _viewStartRotation,
+      rotationDelta: rotation,
       focalPoint: focalPoint,
       panDelta: focalDelta,
       baseRect: base.destination,
       displaySize: _displaySize,
       minZoom: _minZoom,
       maxZoom: _maxZoom,
+      rotationDetent: _rotationDetent,
     );
     _notify(value.committedImage, value.activeStroke);
   }
 
-  /// Returns the viewport to 1:1, centred. Called whenever the canvas identity
-  /// changes (new drawing, loaded image) so it always opens un-zoomed.
+  /// Returns the viewport to 1:1, centred and upright. Called whenever the
+  /// canvas identity changes (new drawing, loaded image) so it always opens
+  /// un-zoomed and un-rotated.
   void resetView() {
     _view = ViewTransform.identity;
     _viewStartZoom = 1.0;
+    _viewStartRotation = 0.0;
   }
 
   void undo() {
