@@ -382,10 +382,14 @@ class _EditorHubState extends State<EditorHub>
               onTap: () => goTo(HubLevel.sizes),
               tooltip: 'Size',
             ),
+          // Pixel art mode locks the grid on, so the highlight would signal
+          // nothing the user chose — suppressed for the same reason the grid
+          // toggle node is hidden at HubLevel.grid while the mode is active.
           buildCategoryNode(
             icon: Icons.grid_on,
             onTap: () => goTo(HubLevel.grid),
             tooltip: 'Grid',
+            selected: state.gridVisible && !state.pixelArtMode,
           ),
           buildCategoryNode(
             icon: Icons.videogame_asset,
