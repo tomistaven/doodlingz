@@ -193,6 +193,24 @@ class _PageOneContentState extends State<_PageOneContent> {
                 'Pinch with two fingers to zoom, and drag with two '
                 'fingers to pan.',
           ),
+          _HintRow(
+            icon: Icons.rotate_right,
+            text:
+                'Twist with two fingers to rotate the canvas. It snaps '
+                'back to upright near straight.',
+          ),
+          _HintRow(
+            icon: Icons.grid_on,
+            text:
+                'Tap the grid icon to show a grid and change its cell '
+                'size.',
+          ),
+          _HintRow(
+            icon: Icons.videogame_asset,
+            text:
+                'Pixel art mode snaps a square brush to the grid. Brush '
+                'and eraser only.',
+          ),
         ],
       ),
     );
