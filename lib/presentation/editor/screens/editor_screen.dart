@@ -106,6 +106,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     if (_navigating) {
       _controller.updateView(
         scale: details.scale,
+        rotation: details.rotation,
         focalPoint: details.localFocalPoint,
         focalDelta: details.focalPointDelta,
       );
