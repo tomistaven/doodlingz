@@ -30,6 +30,30 @@ class EditorCubit extends Cubit<EditorState> {
     emit(state.copyWith(gridCellSize: cellSize));
   }
 
+  /// Toggles pixel art mode. Turning it on force-selects the brush tool and
+  /// force-shows the grid — the mode is a cohesive package (square brush +
+  /// grid + snapping), not three independent settings that happen to
+  /// coexist, so entering it shouldn't leave the user looking at, say, the
+  /// spray tool with the grid hidden and nothing visibly different.
+  ///
+  /// Turning it off does not hide the grid — the user may have wanted grid
+  /// visibility independently of pixel art mode, and force-hiding it would
+  /// be a surprising, lossy side effect of what should be a narrow toggle.
+  void setPixelArtMode(bool enabled) {
+    if (enabled) {
+      emit(
+        state.copyWith(
+          pixelArtMode: true,
+          tool: DrawingTool.brush,
+          strokeSize: _defaultSize(DrawingTool.brush),
+          gridVisible: true,
+        ),
+      );
+    } else {
+      emit(state.copyWith(pixelArtMode: false));
+    }
+  }
+
   /// Signals that a drawing should be loaded into the canvas.
   ///
   /// Sets [EditorState.pendingLoad] so [EditorScreen] can react via

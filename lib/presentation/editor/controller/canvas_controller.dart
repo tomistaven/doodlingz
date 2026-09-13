@@ -10,6 +10,7 @@ import '../engine/canvas_compositor.dart';
 import '../engine/canvas_fit.dart';
 import '../engine/coordinate_mapper.dart';
 import '../engine/grid_renderer.dart';
+import '../engine/grid_snap.dart';
 import '../engine/stroke.dart';
 import '../engine/view_transform.dart';
 import 'canvas_state.dart';
@@ -132,17 +133,23 @@ class CanvasController extends ValueNotifier<CanvasState> {
     Offset localPosition,
     DrawingTool tool,
     Color color,
-    double size,
-  ) {
+    double size, {
+    bool isPixelArt = false,
+    double pixelCellSize = 0,
+  }) {
     if (!_initialised) return;
 
-    final rasterPoint = localToRaster(
+    var rasterPoint = localToRaster(
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
       zoom: _view.zoom,
       pan: _view.pan,
     );
+
+    if (isPixelArt) {
+      rasterPoint = snapToGrid(rasterPoint, pixelCellSize);
+    }
 
     if (tool == DrawingTool.fill) {
       _pendingFill = rasterPoint;
@@ -154,6 +161,8 @@ class CanvasController extends ValueNotifier<CanvasState> {
       drawingTool: tool,
       color: tool == DrawingTool.eraser ? CanvasConstants.canvasColor : color,
       size: size,
+      isPixelArt: isPixelArt,
+      pixelCellSize: pixelCellSize,
       points: [rasterPoint],
     );
 
@@ -172,13 +181,17 @@ class CanvasController extends ValueNotifier<CanvasState> {
     final current = value.activeStroke;
     if (current == null) return;
 
-    final rasterPoint = localToRaster(
+    var rasterPoint = localToRaster(
       localPosition: localPosition,
       displaySize: _displaySize,
       rasterSize: _rasterSize,
       zoom: _view.zoom,
       pan: _view.pan,
     );
+
+    if (current.isPixelArt) {
+      rasterPoint = snapToGrid(rasterPoint, current.pixelCellSize);
+    }
 
     if (current.isFreehand) {
       if (current.drawingTool == DrawingTool.spray) {

@@ -24,6 +24,7 @@ mixin HubNodes on State<EditorHub> {
   void selectSize(double size);
   void toggleGridVisible(bool visible);
   void selectGridCellSize(double cellSize);
+  void togglePixelArtMode(bool enabled);
 
   void openCustomPicker() {
     final cubit = context.read<EditorCubit>();
@@ -103,6 +104,7 @@ mixin HubNodes on State<EditorHub> {
     required IconData icon,
     required VoidCallback onTap,
     required String tooltip,
+    bool selected = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
@@ -111,10 +113,13 @@ mixin HubNodes on State<EditorHub> {
       child: buildCircle(
         onTap: onTap,
         color: UiConstants.hubSurface,
-        borderColor: colorScheme.outline,
+        borderColor: selected ? colorScheme.primary : colorScheme.outline,
+        borderWidth: selected ? 3 : 1.5,
         child: Icon(
           icon,
-          color: Colors.white.withValues(alpha: UiConstants.hubIconOpacity),
+          color: selected
+              ? colorScheme.primary
+              : Colors.white.withValues(alpha: UiConstants.hubIconOpacity),
           size: 22,
         ),
       ),
@@ -225,6 +230,29 @@ mixin HubNodes on State<EditorHub> {
     );
   }
 
+  /// Deliberately a retro/gaming glyph, not a grid or dot pattern — the
+  /// earlier Icons.apps (a 3x3 dot grid) risked reading as "another grid
+  /// option" next to the grid toggle's crosshatch icon, exactly the
+  /// confusion this icon needs to avoid.
+  Widget buildPixelArtToggleNode(bool enabled) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: enabled ? 'Exit pixel art mode' : 'Pixel art mode',
+      preferBelow: false,
+      child: buildCircle(
+        onTap: () => togglePixelArtMode(!enabled),
+        color: UiConstants.hubSurface,
+        borderColor: enabled ? colorScheme.primary : colorScheme.outline,
+        borderWidth: enabled ? 3 : 1.5,
+        child: Icon(
+          Icons.videogame_asset,
+          color: enabled ? colorScheme.primary : Colors.white,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
   /// Same visual shape as [buildSizeNode] but calling [selectGridCellSize]
   /// rather than [selectSize] — a dedicated node so grid cell selection can
   /// never be misrouted into changing the active tool's stroke size.
@@ -254,6 +282,11 @@ mixin HubNodes on State<EditorHub> {
     );
   }
 
+  /// Renders a hub node, circular by default. Reads pixel art mode directly
+  /// via [context.watch] rather than taking a parameter, so every one of this
+  /// mixin's ~8 node builders gets the shape change for free — a mode this
+  /// visible should be a single universal switch, not a flag threaded through
+  /// every call site with room for one to be missed.
   Widget buildCircle({
     required VoidCallback onTap,
     required Color color,
@@ -261,6 +294,7 @@ mixin HubNodes on State<EditorHub> {
     double borderWidth = 1.5,
     Widget? child,
   }) {
+    final pixelArt = context.watch<EditorCubit>().state.pixelArtMode;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -268,7 +302,10 @@ mixin HubNodes on State<EditorHub> {
         height: UiConstants.hubNodeSize,
         decoration: BoxDecoration(
           color: color,
-          shape: BoxShape.circle,
+          shape: pixelArt ? BoxShape.rectangle : BoxShape.circle,
+          borderRadius: pixelArt
+              ? BorderRadius.circular(UiConstants.hubPixelArtNodeRadius)
+              : null,
           border: Border.all(color: borderColor, width: borderWidth),
           boxShadow: hubNodeShadow,
         ),

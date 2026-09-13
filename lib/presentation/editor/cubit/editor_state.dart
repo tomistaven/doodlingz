@@ -15,6 +15,7 @@ class EditorState extends Equatable {
     this.pendingLoad,
     this.gridVisible = false,
     this.gridCellSize = CanvasConstants.defaultGridCellSize,
+    this.pixelArtMode = false,
   });
 
   final DrawingTool tool;
@@ -40,6 +41,13 @@ class EditorState extends Equatable {
   /// way as [gridVisible].
   final double gridCellSize;
 
+  /// Whether pixel art mode is active. Unlike [gridVisible]/[gridCellSize],
+  /// this is read directly by [EditorScreen] at draw-time — like [tool],
+  /// [color], and [strokeSize] — rather than synced into [CanvasController]
+  /// as standing state, since it only ever affects how a stroke is drawn at
+  /// the moment it starts.
+  final bool pixelArtMode;
+
   static EditorState initial() => EditorState(
     tool: DrawingTool.brush,
     color: CanvasConstants.defaultToolColor,
@@ -56,6 +64,7 @@ class EditorState extends Equatable {
     bool clearPendingLoad = false,
     bool? gridVisible,
     double? gridCellSize,
+    bool? pixelArtMode,
   }) => EditorState(
     tool: tool ?? this.tool,
     color: color ?? this.color,
@@ -66,6 +75,7 @@ class EditorState extends Equatable {
     pendingLoad: clearPendingLoad ? null : (pendingLoad ?? this.pendingLoad),
     gridVisible: gridVisible ?? this.gridVisible,
     gridCellSize: gridCellSize ?? this.gridCellSize,
+    pixelArtMode: pixelArtMode ?? this.pixelArtMode,
   );
 
   @override
@@ -77,5 +87,6 @@ class EditorState extends Equatable {
     pendingLoad,
     gridVisible,
     gridCellSize,
+    pixelArtMode,
   ];
 }

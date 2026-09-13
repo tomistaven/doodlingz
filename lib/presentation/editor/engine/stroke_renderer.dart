@@ -76,6 +76,30 @@ void paintSpray(Canvas canvas, Stroke stroke) {
   }
 }
 
+/// Draws pixel art mode points as filled squares snapped to the grid.
+///
+/// Points arrive already snapped to the center of their grid cell (by
+/// `snapToGrid`, called before the point is added to the stroke) — this
+/// function only stamps a square at each one. Squares are centred on the
+/// snapped point so a tap fills exactly the one cell the grid overlay shows
+/// at that location, not the four cells meeting at a corner.
+void paintPixelArt(Canvas canvas, Stroke stroke) {
+  final paint = Paint()
+    ..color = stroke.color
+    ..style = PaintingStyle.fill;
+
+  for (final point in stroke.points) {
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: point,
+        width: stroke.pixelCellSize,
+        height: stroke.pixelCellSize,
+      ),
+      paint,
+    );
+  }
+}
+
 /// Draws a shape stroke (line, rectangle, ellipse, triangle) between the
 /// stroke's first and last point.
 void paintShape(Canvas canvas, Stroke stroke) {
@@ -127,6 +151,11 @@ void paintStroke(Canvas canvas, Stroke stroke) {
 
   if (stroke.isShape) {
     paintShape(canvas, stroke);
+    return;
+  }
+
+  if (stroke.isPixelArt) {
+    paintPixelArt(canvas, stroke);
     return;
   }
 

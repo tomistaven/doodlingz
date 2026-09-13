@@ -13,7 +13,7 @@ import '../cubit/editor_state.dart';
 import 'editor_hub_nodes.dart';
 
 // Public so the HubNodes mixin can reference it across files.
-enum HubLevel { root, tools, colors, sizes, grid }
+enum HubLevel { root, tools, colors, sizes, grid, pixelArt }
 
 /// Floating radial control hub for the editor.
 ///
@@ -115,6 +115,11 @@ class _EditorHubState extends State<EditorHub>
     context.read<EditorCubit>().setGridCellSize(cellSize);
   }
 
+  @override
+  void togglePixelArtMode(bool enabled) {
+    context.read<EditorCubit>().setPixelArtMode(enabled);
+  }
+
   List<double> _sizesFor(DrawingTool tool) {
     switch (tool) {
       case DrawingTool.spray:
@@ -142,6 +147,13 @@ class _EditorHubState extends State<EditorHub>
     final padding = MediaQuery.paddingOf(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
 
+    // Watched here (not just read deeper in _buildArcNodes) because the
+    // pixel-art radius multiplier must be folded into maxReach BEFORE the
+    // landscape clamp below, not applied after — composing it downstream of
+    // an already-finalized radiusScale would let squares overshoot the
+    // viewport the clamp was computed to fit.
+    final pixelArtMode = context.watch<EditorCubit>().state.pixelArtMode;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // The arc's default radii assume portrait's generous body height. In
@@ -155,14 +167,31 @@ class _EditorHubState extends State<EditorHub>
         // node's final resting radius. Budget for that overshoot here, or
         // the topmost node clips for a frame even though it fits at rest.
         const double openAnimationOvershoot = 1.08;
+        final pixelArtScale = pixelArtMode
+            ? UiConstants.hubPixelArtRadiusScale
+            : 1.0;
         final handleBottomMargin = _baseMargin + padding.bottom;
+        // maxReach must reflect the radius that will ACTUALLY be used
+        // (base × pixelArtScale) — checking fit against the unscaled radius
+        // would let pixel art mode's larger arc overshoot the viewport in
+        // landscape, since the fit check would never see the inflated size.
+        final targetOuterRadius =
+            UiConstants.hubArcRadiusOuter * pixelArtScale;
         final maxReach = handleBottomMargin +
             _handleSize / 2 +
-            UiConstants.hubArcRadiusOuter * openAnimationOvershoot +
+            targetOuterRadius * openAnimationOvershoot +
             _nodeSize / 2;
+        // radiusScale multiplies the BASE radius in _positionNode. Since
+        // maxReach was built from the pixel-art-scaled target, the fit ratio
+        // (constraints.maxHeight / maxReach) already represents "fraction of
+        // the pixel-art target that fits" — multiplying it by pixelArtScale
+        // maps that fraction back onto the base radius correctly. When
+        // nothing needs clamping, radiusScale must still carry pixelArtScale
+        // on its own, since there's no fit ratio to carry it in that branch.
         final radiusScale = constraints.maxHeight < maxReach
-            ? (constraints.maxHeight / maxReach).clamp(0.5, 1.0)
-            : 1.0;
+            ? (constraints.maxHeight / maxReach).clamp(0.5, 1.0) *
+                pixelArtScale
+            : pixelArtScale;
 
         return _buildHub(context, padding, screenWidth, radiusScale);
       },
@@ -275,6 +304,14 @@ class _EditorHubState extends State<EditorHub>
     required double radiusScale,
     required Widget child,
   }) {
+    // count == 5 was tried as a two-row split (2 inner + 3 outer), but the
+    // proven hubArcRadiusInner/Outer pair (105/190, tuned for dense menus
+    // like the 10-node color picker) creates a radial gap that reads as two
+    // disconnected clusters rather than one cohesive menu at only 5 nodes.
+    // Reverted to single-row: the original single-row overlap at 5 nodes was
+    // caused by hubArcRadiusSingle (115) being sized for up to 4 nodes, not
+    // by single-row layout being wrong for 5 — a larger single-row radius
+    // fixes the actual cause without the two-row layout's side effect.
     final bool useTwoRows = count > 5;
     final int innerCount = useTwoRows ? (count / 2).floor() : count;
     final bool isOuter = index >= innerCount;
@@ -283,7 +320,9 @@ class _EditorHubState extends State<EditorHub>
 
     final double targetRadius = (useTwoRows
             ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
-            : UiConstants.hubArcRadiusSingle) *
+            : (count == 5
+                ? UiConstants.hubArcRadiusFive
+                : UiConstants.hubArcRadiusSingle)) *
         radiusScale;
     final double distance = targetRadius * t;
 
@@ -337,7 +376,7 @@ class _EditorHubState extends State<EditorHub>
           ),
           if (_showsColor(state.tool))
             buildColorCategoryNode(state.color),
-          if (sizes.isNotEmpty)
+          if (sizes.isNotEmpty && !state.pixelArtMode)
             buildCategoryNode(
               icon: Icons.line_weight,
               onTap: () => goTo(HubLevel.sizes),
@@ -348,9 +387,21 @@ class _EditorHubState extends State<EditorHub>
             onTap: () => goTo(HubLevel.grid),
             tooltip: 'Grid',
           ),
+          buildCategoryNode(
+            icon: Icons.videogame_asset,
+            onTap: () => goTo(HubLevel.pixelArt),
+            tooltip: 'Pixel Art',
+            selected: state.pixelArtMode,
+          ),
         ];
       case HubLevel.tools:
-        return DrawingTool.values
+        // Spray, fill, and shapes have no defined behavior under grid
+        // snapping and square stamping — pixel art mode restricts selection
+        // to the two tools its stamp mechanic actually supports.
+        final availableTools = state.pixelArtMode
+            ? const [DrawingTool.brush, DrawingTool.eraser]
+            : DrawingTool.values;
+        return availableTools
             .map((tool) => buildToolNode(tool, state.tool == tool))
             .toList();
       case HubLevel.colors:
@@ -365,7 +416,12 @@ class _EditorHubState extends State<EditorHub>
             .toList();
       case HubLevel.grid:
         return [
-          buildGridToggleNode(state.gridVisible),
+          // Hidden rather than disabled while pixel art mode is on — same
+          // pattern as _showsColor hiding the color node for the eraser:
+          // this app never shows a disabled control, it omits controls that
+          // have no effect. Pixel art mode force-shows the grid and keeps it
+          // locked on, so a toggle that can't do anything shouldn't appear.
+          if (!state.pixelArtMode) buildGridToggleNode(state.gridVisible),
           ...CanvasConstants.gridCellSizes.map(
             (cellSize) => buildGridCellSizeNode(
               cellSize,
@@ -374,6 +430,8 @@ class _EditorHubState extends State<EditorHub>
             ),
           ),
         ];
+      case HubLevel.pixelArt:
+        return [buildPixelArtToggleNode(state.pixelArtMode)];
     }
   }
 
@@ -383,6 +441,10 @@ class _EditorHubState extends State<EditorHub>
     required double bottom,
     required bool hubOnRight,
   }) {
+    final pixelArt = state.pixelArtMode;
+    final outerRadius = pixelArt
+        ? BorderRadius.circular(UiConstants.hubPixelArtNodeRadius)
+        : null;
     return Positioned(
       left: hubOnRight ? null : edge,
       right: hubOnRight ? edge : null,
@@ -398,7 +460,8 @@ class _EditorHubState extends State<EditorHub>
             width: _handleSize,
             height: _handleSize,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              shape: pixelArt ? BoxShape.rectangle : BoxShape.circle,
+              borderRadius: outerRadius,
               border: Border.all(color: state.color, width: 4),
               boxShadow: [
                 BoxShadow(
@@ -415,7 +478,8 @@ class _EditorHubState extends State<EditorHub>
               child: Container(
                 decoration: BoxDecoration(
                   color: UiConstants.hubSurface,
-                  shape: BoxShape.circle,
+                  shape: pixelArt ? BoxShape.rectangle : BoxShape.circle,
+                  borderRadius: outerRadius,
                   border: Border.all(
                     color: UiConstants.hubHandleRing,
                     width: UiConstants.hubHandleRingWidth,

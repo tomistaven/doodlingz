@@ -97,6 +97,8 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
       editorState.tool,
       editorState.color,
       editorState.strokeSize,
+      isPixelArt: editorState.pixelArtMode,
+      pixelCellSize: editorState.gridCellSize,
     );
   }
 

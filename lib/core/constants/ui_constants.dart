@@ -22,8 +22,33 @@ abstract final class UiConstants {
   /// Radius of the single arc row when only one row is shown.
   static const double hubArcRadiusSingle = 115;
 
+  /// Single-row radius used only at exactly 5 nodes. [hubArcRadiusSingle]
+  /// (115) was sized for up to 4 nodes; at 5 nodes across the same 80° sweep
+  /// the chord between adjacent nodes shrinks below their own diameter,
+  /// causing visible overlap. Derived (not guessed) to match the same
+  /// adjacent-node clearance the proven 4-node case already has: solving
+  /// chord(r, 5 nodes, 80°) == chord(115, 4 nodes, 80°) gives r ≈ 152.7.
+  static const double hubArcRadiusFive = 153;
+
   /// Radius of the outer arc row when two rows are shown.
   static const double hubArcRadiusOuter = 190;
+
+  /// Corner radius for hub nodes when pixel art mode is active. Deliberately
+  /// tight (not [overlayCardRadius]'s 16) — square nodes should read as
+  /// blocky/pixel-art, with just enough softening to avoid a harsh 0px edge
+  /// clashing with the rest of the app's rounded chrome.
+  static const double hubPixelArtNodeRadius = 3;
+
+  /// Multiplier applied to every hub arc radius when pixel art mode is
+  /// active. Nodes are placed at a fixed angular step, so two adjacent nodes'
+  /// center-to-center distance is a chord that shrinks with the sine of half
+  /// that angle — fine for circles, whose silhouette also shrinks away from
+  /// the chord direction, but not for squares, whose flat corners stay at
+  /// full extent right up to the chord line. sqrt(2) is the ratio between a
+  /// square's side and its diagonal — scaling the radius (and so the chord)
+  /// by that factor gives squares the same non-overlap guarantee circles
+  /// already had at the unscaled radius.
+  static const double hubPixelArtRadiusScale = 1.41;
 
   // Hub animation
 
