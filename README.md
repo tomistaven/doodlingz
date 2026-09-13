@@ -58,7 +58,9 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Feature | Description |
 | --- | --- |
 | Undo / Redo | 20-step undo history with a full redo stack |
-| Pinch-to-zoom and pan | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan. Drawing with one finger works normally at any zoom level. The view resets to 1:1 when opening a new or saved drawing |
+| Zoom, pan, and rotate | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan; twist with two fingers to rotate. Rotation snaps back to upright when you bring it within a few degrees of straight. Drawing with one finger works normally at any zoom, pan, or angle. The view resets to 1:1 and upright when opening a new or saved drawing |
+| Grid overlay | Toggleable grid in three cell sizes, drawn over the canvas as a guide. It scales, pans, and rotates with the canvas, and is never part of the saved image |
+| Pixel art mode | Snaps a square brush to the grid, one cell per stamp. Turning it on selects the brush and shows the grid; tools are limited to brush and eraser while it is active |
 | New / clear canvas | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
 
 ### Gallery & Files
@@ -79,7 +81,6 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Onboarding overlay | Two-page guide shown on first launch, replayable any time from Settings |
 | Splash screen | Brief branded launch screen — app icon, wordmark, and a loading indicator — shown before the editor opens |
 | Left-handed mode | Mirrors the tool hub to the bottom-right corner via a Settings toggle |
-| Grid overlay | Painter overlay only to assist in drawing |
 
 ---
 
@@ -88,9 +89,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Feature | Notes |
 | --- | --- |
 | Canvas size picker | Extend the budget-bounded model with a new drawing dialog |
-| Rotate | Natural extension of `ViewTransform` alongside zoom and pan |
 | Mirror / symmetry | Horizontal and vertical — point reflection in `onPointerMove` |
-| Pixel art mode | Square brush, grid overlay, and snap-to-grid coordinate rounding |
 | Gradient tool | `Paint.shader` with `Gradient.linear` in `stroke_renderer` |
 | Pen pressure (touch) | Flutter pointer events carry a `pressure` field — device support varies |
 | Drawing tablet support | USB/Bluetooth stylus input via platform channel or `flutter_stylus` |
@@ -159,11 +158,23 @@ The white canvas fills the screen. Draw by dragging your finger. The tool hub ha
 
 ### Tool hub
 
-Tap the circular handle in the bottom corner to open the hub. The root level shows up to three category nodes: **Tools**, **Color**, and **Size**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root. The size node is hidden when the fill tool is active (fill has no stroke width). The color node is hidden when the eraser is active (the eraser always paints the canvas background color, so the picker has no effect). Tap the handle again or the scrim to close without changing anything.
+Tap the circular handle in the bottom corner to open the hub. The root level shows up to five category nodes: **Tools**, **Color**, **Size**, **Grid**, and **Pixel Art**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root.
 
-### Zooming and panning
+The hub only shows controls that actually do something. The size node is hidden when the fill tool is active (fill has no stroke width) and while pixel art mode is on (the grid cell size governs the brush instead). The color node is hidden when the eraser is active, since the eraser always paints the canvas background color. The Grid node is highlighted while the grid is showing, and the Pixel Art node while the mode is on.
 
-Pinch with two fingers to zoom in up to 5×. Drag with two fingers to pan the canvas while zoomed. All drawing tools work normally at any zoom level — use zoom to place precise strokes or fine details. The view resets to 1:1 when you open a new drawing, load from the gallery, or import an image.
+Tap the handle again or the scrim to close without changing anything.
+
+### Zooming, panning, and rotating
+
+Pinch with two fingers to zoom in up to 5×. Drag with two fingers to pan the canvas while zoomed. Twist with two fingers to rotate it — useful for drawing a curve at a comfortable wrist angle. Rotation snaps back to exactly upright once you bring it within a few degrees of straight, so you never get stuck slightly crooked.
+
+All drawing tools work normally at any zoom, pan, or angle — strokes land under your finger regardless. The view resets to 1:1 and upright when you open a new drawing, load from the gallery, or import an image.
+
+### Grid and pixel art mode
+
+Open **Grid** in the hub to show the grid and pick one of three cell sizes. The grid is a drawing guide only — it scales, pans, and rotates with the canvas, and never appears in a saved or exported image.
+
+Open **Pixel Art** to turn on pixel art mode. The brush becomes a square stamp that fills exactly one grid cell, so strokes land on the grid rather than between it. Turning the mode on selects the brush and shows the grid for you; turning it off leaves the grid however you last set it. While the mode is active only the brush and eraser are available — spray, fill, and the shape tools have no meaningful behaviour on a snapped square stamp — and the hub's nodes turn square to signal the mode at a glance.
 
 ### Shapes
 
@@ -234,6 +245,12 @@ A fixed toolbar would permanently shrink the drawable area. The radial hub only 
 | ![v1 flat text toolbar](screenshots/v1-flat-toolbar.jpg) | ![v2 icon toolbar with colour picker](screenshots/v2-icontoolbar-colorpicker.png) | ![current version with full tool set](screenshots/current-version.png) |
 
 Both versions kept the toolbar pinned above the canvas, permanently consuming screen space. The radial hub replaced both.
+
+### Pixel art mode as one switch, not three toggles
+
+Square brush, grid visibility, and snap-to-grid could each have been an independent option. They are instead a single mode, because the three are only useful together: a square stamp that doesn't snap lands between cells, and snapping with no visible grid gives no feedback about where a stamp will go. Turning the mode on therefore selects the brush and shows the grid in one action. Turning it off is deliberately *not* symmetric — grid visibility is left as the user last set it, since the grid is independently useful as a plain drawing guide.
+
+The same reasoning drives what the hub hides while the mode is active. Stroke size disappears because the grid cell governs the stamp, and the tool list narrows to brush and eraser because spray, fill, and shapes have no defined behaviour under snapped square stamping. Showing a disabled control would be worse than showing none: the app's existing rule is that a control which cannot affect anything is omitted, not greyed out.
 
 ### Eraser as a white brush
 
