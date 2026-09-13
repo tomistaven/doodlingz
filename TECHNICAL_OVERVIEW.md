@@ -1,6 +1,6 @@
 # Doodlingz — Technical Overview
 
-This document covers the architecture, the raster pipeline, each drawing tool, the flood-fill algorithm, undo/redo, the editor load path, and the persistence layer. The README covers features and setup; this covers the code.
+This document covers the architecture, the raster pipeline, the view transform, each drawing tool, the grid and pixel art mode, the flood-fill algorithm, undo/redo, the editor load path, and the persistence layer. The README covers features and setup; this covers the code.
 
 ---
 
@@ -8,8 +8,9 @@ This document covers the architecture, the raster pipeline, each drawing tool, t
 
 - [Architecture](#architecture)
 - [The Raster Pipeline](#the-raster-pipeline)
-- [Coordinate Mapping](#coordinate-mapping)
+- [The View Transform and Coordinate Mapping](#the-view-transform-and-coordinate-mapping)
 - [Drawing Tools](#drawing-tools)
+- [Grid and Pixel Art Mode](#grid-and-pixel-art-mode)
 - [Flood Fill](#flood-fill)
 - [Undo and Redo](#undo-and-redo)
 - [Editor Load Path and State Management](#editor-load-path-and-state-management)
@@ -32,7 +33,7 @@ The project uses Flutter Clean Architecture with three layers plus a shared core
 
 **Core** (`lib/core/`) holds the theme and the constants. `CanvasConstants` is the single source of truth for raster dimensions, tool sizes, spray density, fill tolerance, and undo depth; `AppConstants` owns storage paths and the filename format.
 
-A note on layer placement: the raster engine (`canvas_compositor.dart`, `flood_fill.dart`, `coordinate_mapper.dart`, `canvas_fit.dart`, `stroke.dart`) lives under `presentation/editor/engine/` rather than in core. It is `dart:ui` rendering code tied to the editor screen, not app-wide configuration, so it sits with the feature that owns it.
+A note on layer placement: the raster engine (`canvas_compositor.dart`, `flood_fill.dart`, `coordinate_mapper.dart`, `canvas_fit.dart`, `view_transform.dart`, `stroke.dart`, `stroke_renderer.dart`, `grid_renderer.dart`, `grid_snap.dart`) lives under `presentation/editor/engine/` rather than in core. It is `dart:ui` rendering code tied to the editor screen, not app-wide configuration, so it sits with the feature that owns it.
 
 ### Typography
 
@@ -53,7 +54,11 @@ Rasterising on every pointer-move event would be far too expensive. Instead:
 - While the finger is down, the in-progress stroke is held as a lightweight `Stroke` (a tool, a color, a size, and a growing list of points) and painted as a **vector overlay** on top of the committed image each frame.
 - On pointer-up, the stroke is composited **once** into a new committed `ui.Image`, and the overlay is cleared.
 
-`DrawingCanvasPainter` does exactly this: it draws the committed image first, then — if an active stroke exists — paints it as vectors above. The preview paint logic and the commit paint logic are deliberately kept identical per tool (same path construction, same blend modes, same spray dots) so what the user sees during the gesture is exactly what gets baked in.
+`DrawingCanvasPainter` does exactly this: it draws the committed image first, then — if an active stroke exists — paints it as vectors above, and finally the grid overlay if it is visible. The preview paint logic and the commit paint logic are deliberately kept identical per tool (same path construction, same blend modes, same spray dots) so what the user sees during the gesture is exactly what gets baked in.
+
+All three layers are drawn inside a **single** transform block, in raster coordinates, applied once via `CanvasFit.applyTo()`. Each layer previously derived that transform for itself, which is the duplication that produced the spray and stroke-join bugs described under Drawing Tools; computing it once removes the opportunity to drift.
+
+The grid is drawn **last**, above the active stroke. It already sits above every committed pixel, so painting it beneath the in-progress overlay meant a live stroke covered grid lines until the frame it committed — most visible with the eraser, whose opaque white fill blanked them outright mid-drag. Drawing it last makes the live preview match the committed result for every tool.
 
 ### CanvasController and ValueNotifier
 
@@ -71,7 +76,8 @@ final Stroke?     activeStroke;      // in-progress vector overlay, or null
 final bool        canUndo;
 final bool        canRedo;
 final bool        isDirty;           // pixels changed since last save/load/reset
-final ViewTransform view;            // user zoom/pan; identity = plain contain-fit
+final ViewTransform view;            // user zoom/pan/rotation; identity = plain contain-fit
+final GridSettings  grid;            // overlay visibility and cell size
 ```
 
 Because a pointer-move produces a new state every frame, the fields are kept minimal — the heavy `ui.Image` is passed by reference, not copied.
@@ -87,21 +93,47 @@ Bounding the *area* rather than the *dimensions* is what actually keeps flood-fi
 
 ---
 
-## Coordinate Mapping
+## The View Transform and Coordinate Mapping
 
 Because the buffer and the display area can have different aspect ratios, the canvas is fitted into its display area with a single uniform scale and centred — the `BoxFit.contain` model. A single helper, `fitRasterInDisplay()` (`engine/canvas_fit.dart`), computes that base fit and is the **one** source of truth shared by the painter and the coordinate mapper.
 
-When the user zooms or pans, a `ViewTransform` (zoom factor + pan offset) is composed on top of the base fit by `fitRasterWithView()` in the same file. Both the painter and the mapper call this composed version — never the base fit directly while a transform is active — so the rendered image and the touch mapping stay locked to the same geometry. `ViewTransform.applyGesture()` handles the focal-anchored zoom math (keeping the content under the pinch fingers fixed as the zoom changes) and clamps the pan so the canvas cannot be dragged off-screen.
+### ViewTransform
 
-`localToRaster()` (`engine/coordinate_mapper.dart`) inverts the composed fit to convert a pointer position in the rendered widget's local space into a raster coordinate:
+`ViewTransform` (`engine/view_transform.dart`) is the user's viewport state: a zoom factor, a pan offset, and a rotation angle. `fitRasterWithView()` composes it onto the base fit, returning the same `CanvasFit` both the painter and the mapper consume — so the rendered image and the touch mapping are always driven by one transform and cannot diverge. At identity (zoom 1, no pan, no rotation) it returns the untouched base fit, so the common case carries no overhead.
+
+`ViewTransform.applyGesture()` folds one frame of a two-finger gesture into a new transform. Both `scale` and `rotation` arrive from `ScaleUpdateDetails` cumulative since the gesture began, and compose against a baseline snapshotted at gesture start (`_viewStartZoom` / `_viewStartRotation`), so a second pinch or twist resumes from wherever the last one ended rather than snapping back.
+
+The focal anchor keeps the content under the fingers fixed across the change. The focal-relative vector is rotated by the rotation **delta** before the zoom ratio is applied — rotating the view moves that point around the canvas centre, so anchoring on the unrotated vector would slide the drawing out from under the fingers by exactly the angle turned.
+
+Rotation is normalised into (-pi, pi] and snapped to exactly zero within `_rotationDetent` (4°). Two fingers cannot reliably land on 0.0, so without the detent an upright canvas would be unreachable once turned, and the identity fast path would never re-engage. Normalisation matters for the same reason: cumulative gesture rotation is unbounded, so a user who turns a full circle back to upright would otherwise sit at 6.28 rad with the detent never firing.
+
+### Pan clamping under rotation
+
+`clampViewPan()` limits pan to how far the canvas overflows the display, so it can never be dragged fully off-screen; at zoom 1 the overflow is zero on both axes, which pins the view exactly to the contain-fit position.
+
+Rotation widens those extents. A rotated rectangle covers an axis-aligned span of `w·|cos| + h·|sin|`, substantially larger than its unrotated width at intermediate angles, so clamping against the unrotated extent would lock pan while the canvas was still visibly overflowing. The clamp uses the rotated axis-aligned bounding box rather than the exact hull, which is marginally conservative near the corners — it can only ever restrict slightly early, never allow the canvas to escape.
+
+### Mapping touches back to pixels
+
+`CanvasFit` exposes the transform as two methods rather than leaving callers to rebuild it from `destination` and `scale`:
+
+- `applyTo(Canvas)` — concatenates the raster-to-display transform, so the painter draws in buffer coordinates
+- `toRaster(Offset)` — the exact inverse, used by `localToRaster()` (`engine/coordinate_mapper.dart`)
+
+This matters once rotation exists: the destination rectangle alone no longer describes where the canvas is drawn, so any caller doing its own subtract-and-divide would silently ignore the angle.
+
+`localToRaster()` inverts the composed fit and then clamps:
 
 ```dart
-fit = fitRasterWithView(rasterSize, displaySize, zoom, pan)  // composed fit
-rx = ((localPosition.dx - fit.destination.left) / fit.scale).clamp(0, rasterSize.width  - 1)
-ry = ((localPosition.dy - fit.destination.top)  / fit.scale).clamp(0, rasterSize.height - 1)
+fit    = fitRasterWithView(rasterSize, displaySize, zoom, pan, rotation)
+raster = fit.toRaster(localPosition)   // un-rotate about the fit centre, then un-scale
+rx     = raster.dx.clamp(0, rasterSize.width  - 1)
+ry     = raster.dy.clamp(0, rasterSize.height - 1)
 ```
 
-The clamp guarantees every returned coordinate is a valid index into the raw byte buffer regardless of zoom level. When the view is at identity (zoom 1, pan zero), `fitRasterWithView` returns the untouched base fit, so there is no overhead for the common no-zoom case. The painter clips to the canvas widget bounds at the top of `paint()` so zoomed pixels can never spill over the paper border into the desk margin.
+The clamp is applied **after** the full inverse, never fused into it per-axis. Under rotation the two axes are mixed — a point off the left edge of the screen can map out of bounds in *y* — so clamping a coordinate mid-inverse would fold the touch onto the wrong edge. Clamping at all guarantees every returned coordinate is a valid index into the raw byte buffer, which also folds a touch in the letterbox margin onto the nearest edge pixel.
+
+The painter clips to the canvas widget bounds at the top of `paint()`, **before** the fit transform is applied, so the clip stays in display space; clipping inside the transform block would rotate the clip region along with the content and let pixels spill past the widget edge.
 
 ---
 
@@ -158,6 +190,39 @@ Shapes are two-point strokes: the pointer-down position and the current pointer 
 - **triangle** → a `Path` from the rect's top-centre to its two bottom corners
 
 All four are stroked outlines with a selectable width, drawn with `StrokeJoin.round` so corners match the rounded look of the brush and highlighter.
+
+---
+
+## Grid and Pixel Art Mode
+
+### The grid overlay
+
+`GridSettings` (`engine/grid_renderer.dart`) carries the overlay's visibility and cell size, and `paintGrid()` draws the lines. The cell size is expressed in **raster** pixels, not display pixels, and the lines are drawn inside the same raster-space transform block as the stroke overlay. That is what makes the grid scale, pan and rotate with the canvas automatically — a display-pixel cell size would need separate correction math at every zoom level, and could not follow a rotation at all.
+
+Lines are drawn at `strokeWidth = 0`, which Dart's canvas renders as a hairline: one device pixel regardless of the transform, so the grid stays crisp at any zoom instead of thickening with it.
+
+Grid state reaches the controller as standing state, synced from `EditorState` by `EditorScreen` via a `BlocListener`, mirroring the existing tool/colour/size flow rather than the cubit touching the controller directly. It is threaded through both `_notify` and `_notifyWithStroke` — omitting it from either would reset the grid to disabled on the next pointer-move frame, since `_notifyWithStroke` fires every drag.
+
+### Snapping
+
+`snapToGrid()` (`engine/grid_snap.dart`) maps a raster point to the **centre of the cell containing it** — floor to the cell, then offset by half a cell. Rounding to the nearest grid line intersection is the wrong operation and was the first implementation: an intersection is a corner shared by four cells, so a square stamped there straddles all four rather than filling any one of them. Flooring lands on the point a same-size square needs in order to fill exactly one visible grid square.
+
+The function is deliberately independent of grid rendering, so a caller can snap against a grid that is not even visible.
+
+### Pixel art mode
+
+Pixel art mode is a cohesive package rather than three independent toggles. `EditorCubit.setPixelArtMode(true)` force-selects the brush and force-shows the grid in the same emit; turning it off leaves grid visibility as the user last set it rather than force-hiding it.
+
+`Stroke` carries `isPixelArt` and `pixelCellSize`, and `stroke_renderer.dart` branches on them to stamp a filled square of one cell at each point instead of joining points into a path. Because that branch lives in the shared renderer, the live preview and the raster commit pick it up from one edit — the structural fix that makes preview/commit divergence impossible.
+
+The eraser needed no special-casing: its colour is already forced to the canvas colour upstream, so it stamps squares through the same path as the brush.
+
+Two restrictions follow from the stamp mechanic, both expressed by hiding controls rather than disabling them — the same pattern the hub already used to hide the size node for fill and the colour node for the eraser:
+
+- **Tools** are restricted to brush and eraser. Spray, fill and the shapes have no defined behaviour under grid-snapped square stamping.
+- **Stroke size** is hidden from the hub root, since brush footprint is governed by the grid cell size instead.
+
+Hub nodes also switch from circles to tight-cornered squares throughout the entire hub while the mode is active, including the handle and colour swatches, as a deliberate universal switch. That change carries a geometry consequence: nodes sit at a fixed angular step, so adjacent centres are a chord that shrinks with the sine of half that angle. Circles tolerate this because their silhouette also shrinks away from the chord direction; squares do not, since their corners stay at full extent right up to the chord line. `hubPixelArtRadiusScale` (sqrt 2, the side-to-diagonal ratio) scales every arc radius while the mode is on, giving squares the same non-overlap guarantee circles already had.
 
 ---
 
@@ -298,7 +363,7 @@ All registrations are in `lib/injection_container.dart`, run in `main()` before 
 
 ## Key Constants
 
-All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constants.dart`); storage and filename rules live in `AppConstants`. UI layout, animation, and timing for everything outside the canvas — the hub, overlays, and the splash screen — lives in `UiConstants` (`lib/core/constants/ui_constants.dart`).
+All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constants.dart`); storage and filename rules live in `AppConstants`. UI layout, animation, and timing for the hub and the splash screen live in `UiConstants` (`lib/core/constants/ui_constants.dart`).
 
 ### CanvasConstants
 
@@ -316,11 +381,15 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `maxHistorySteps` | 20 | Undo depth cap, sized for memory rather than left unbounded |
 | `fillColorTolerance` | 32 | Per-channel match tolerance before edge blending kicks in |
 | `presetColors` | 8 colors | Quick-access palette in the radial swatch menu |
+| `gridCellSizes` | 16 / 32 / 64 | Selectable grid cell sizes (raster px); also the pixel art stamp size |
+| `defaultGridCellSize` | 32 | Shared default spacing for `EditorState` and `GridSettings.disabled` |
 | `timestampPattern` | `yyyyMMdd_HHmmss_SSS` | Filename timestamp; ms component avoids save collisions |
 
 ### UiConstants
 
-`UiConstants` (`lib/core/constants/ui_constants.dart`) holds layout, animation, and styling values for widgets outside the canvas — the hub, overlays, and splash screen. Tool and raster tuning belongs in `CanvasConstants` above; this is everything else.
+`UiConstants` (`lib/core/constants/ui_constants.dart`) holds layout, animation, and styling values for the hub and the splash screen. Tool and raster tuning belongs in `CanvasConstants` above.
+
+The onboarding overlay is deliberately **not** covered here. Its spacing became orientation-dependent when the card was made height-bounded and scrollable, which a flat constant list cannot express, so it owns its own layout values as a self-contained widget.
 
 | Constant | Value | What it controls |
 | --- | --- | --- |
@@ -328,8 +397,11 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `hubNodeSize` | 44 | Diameter of each arc node button |
 | `hubEdgeMargin` | 24 | Distance from the screen edge to the hub handle |
 | `hubArcRadiusInner` | 105 | Inner arc row radius when two rows are shown |
-| `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown |
+| `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown (up to 4 nodes) |
+| `hubArcRadiusFive` | 153 | Single-row radius at exactly 5 nodes; derived to match the proven 4-node adjacent-node clearance |
 | `hubArcRadiusOuter` | 190 | Outer arc row radius when two rows are shown |
+| `hubPixelArtNodeRadius` | 3 | Corner radius of hub nodes while pixel art mode is active |
+| `hubPixelArtRadiusScale` | 1.41 | Arc radius multiplier in pixel art mode, so square nodes keep circles' non-overlap clearance |
 | `hubArcDuration` | 280ms | Hub open/close arc animation duration |
 | `hubHandleFadeDuration` | 150ms | Handle icon opacity fade duration |
 | `hubSurface` | `0xFF242424` | Hub node and handle interior color; hardcoded so it never themes to white |
@@ -337,11 +409,5 @@ All canvas tuning lives in `CanvasConstants` (`lib/core/constants/canvas_constan
 | `hubScrimOpacity` | 0.08 | Scrim opacity behind open hub arc nodes |
 | `hubIconOpacity` | 0.9 | Hub node icon opacity |
 | `hubColorNodeBorderOpacity` | 0.85 | Border opacity for the color category node |
-| `overlayAnimDuration` | 300ms | Onboarding overlay scale+fade animation duration |
-| `overlayScrimOpacity` | 0.55 | Peak scrim opacity behind the onboarding card |
-| `overlayCardRadius` | 16 | Onboarding card corner radius |
-| `overlayCardPadding` | `EdgeInsets.fromLTRB(24, 28, 24, 20)` | Padding inside the onboarding card |
-| `overlayHorizontalMargin` | 32 | Horizontal margin between the onboarding card and screen edges |
-| `overlayToolListHeight` | 240 | Fixed height of the tool-reference list on page 2 of the overlay |
 | `splashDuration` | 1400ms | Time the splash screen is shown before navigating to `AppShell` |
 | `splashIconSize` | 96 | Width and height of the splash icon mark |
