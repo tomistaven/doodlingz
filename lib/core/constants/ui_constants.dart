@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 /// UI layout, animation, and styling constants for widgets outside the canvas.
 ///
 /// Canvas and tool dimensions belong in [CanvasConstants]. These constants
-/// cover the editor hub, overlays, and shared chrome surfaces.
+/// cover the editor hub and shared chrome surfaces. The onboarding overlay is
+/// deliberately excluded: its spacing is orientation-dependent, which a flat
+/// constant list cannot express, so it owns its own layout values.
 abstract final class UiConstants {
   // Hub geometry
 
@@ -34,9 +36,9 @@ abstract final class UiConstants {
   static const double hubArcRadiusOuter = 190;
 
   /// Corner radius for hub nodes when pixel art mode is active. Deliberately
-  /// tight (not [overlayCardRadius]'s 16) — square nodes should read as
-  /// blocky/pixel-art, with just enough softening to avoid a harsh 0px edge
-  /// clashing with the rest of the app's rounded chrome.
+  /// tight — square nodes should read as blocky/pixel-art, with just enough
+  /// softening to avoid a harsh 0px edge clashing with the rest of the app's
+  /// rounded chrome.
   static const double hubPixelArtNodeRadius = 3;
 
   /// Multiplier applied to every hub arc radius when pixel art mode is
@@ -80,31 +82,6 @@ abstract final class UiConstants {
 
   /// Border opacity for the colour category node.
   static const double hubColorNodeBorderOpacity = 0.85;
-
-  // Overlay
-
-  /// Duration of the onboarding overlay scale+fade animation.
-  static const Duration overlayAnimDuration = Duration(milliseconds: 300);
-
-  /// Peak scrim opacity behind the onboarding card.
-  static const double overlayScrimOpacity = 0.55;
-
-  /// Corner radius of the onboarding card.
-  static const double overlayCardRadius = 16;
-
-  /// Padding inside the onboarding card.
-  static const EdgeInsets overlayCardPadding = EdgeInsets.fromLTRB(
-    24,
-    28,
-    24,
-    20,
-  );
-
-  /// Horizontal margin between the onboarding card and screen edges.
-  static const double overlayHorizontalMargin = 32;
-
-  /// Fixed height of the tool-reference list on page 2 of the overlay.
-  static const double overlayToolListHeight = 240;
 
   // Splash
 
