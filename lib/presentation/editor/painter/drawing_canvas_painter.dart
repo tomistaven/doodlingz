@@ -6,11 +6,11 @@ import '../engine/grid_renderer.dart';
 import '../engine/stroke.dart';
 import '../engine/stroke_renderer.dart';
 
-/// Renders the committed raster image and the active stroke overlay.
+/// Renders the committed raster image, the active stroke overlay and the grid.
 ///
 /// The committed image is drawn first, then the in-progress stroke is
 /// painted on top as a cheap vector overlay — avoiding a full raster
-/// commit on every pointer-move event.
+/// commit on every pointer-move event — and the grid last of all.
 class DrawingCanvasPainter extends CustomPainter {
   const DrawingCanvasPainter({required this.state});
 
@@ -24,13 +24,17 @@ class DrawingCanvasPainter extends CustomPainter {
 
     _drawCommittedImage(canvas, size);
 
-    if (state.grid.visible) {
-      _drawGrid(canvas, size);
-    }
-
     final stroke = state.activeStroke;
     if (stroke != null && stroke.points.isNotEmpty) {
       _drawOverlay(canvas, size, stroke);
+    }
+
+    // Drawn last so the grid sits above the live stroke the same way it sits
+    // above committed pixels. Painting it under the overlay let an in-progress
+    // stroke cover grid lines until the frame it committed — most visible with
+    // the eraser, whose canvas-coloured fill blanked the lines outright.
+    if (state.grid.visible) {
+      _drawGrid(canvas, size);
     }
   }
 
