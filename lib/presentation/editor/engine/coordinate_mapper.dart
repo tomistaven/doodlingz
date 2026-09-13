@@ -10,10 +10,10 @@ import 'canvas_fit.dart';
 /// widget in logical pixels. [rasterSize] is the pixel dimensions of the
 /// underlying buffer, which may be any aspect ratio once an image is imported.
 ///
-/// [zoom] and [pan] apply the user's viewport transform; at their defaults the
-/// mapping is the plain contain-fit. The raster is fitted into the display with
-/// the same composed transform the painter draws with, so the inverse removes
-/// the composed centring offset, then divides by the composed scale. Result is
+/// [zoom], [pan] and [rotation] apply the user's viewport transform; at their
+/// defaults the mapping is the plain contain-fit. The inverse is taken by
+/// [CanvasFit.toRaster] rather than re-derived here, so the mapping is
+/// guaranteed to invert the exact transform the painter drew with. Result is
 /// clamped to valid pixel indices so callers never index out of bounds, which
 /// also folds a touch in the letterbox margin onto the nearest edge pixel.
 Offset localToRaster({
@@ -22,22 +22,24 @@ Offset localToRaster({
   required Size rasterSize,
   double zoom = 1.0,
   Offset pan = Offset.zero,
+  double rotation = 0.0,
 }) {
   final fit = fitRasterWithView(
     rasterSize: rasterSize,
     displaySize: displaySize,
     zoom: zoom,
     pan: pan,
+    rotation: rotation,
   );
 
-  final rx = ((localPosition.dx - fit.destination.left) / fit.scale).clamp(
-    0.0,
-    rasterSize.width - 1,
-  );
-  final ry = ((localPosition.dy - fit.destination.top) / fit.scale).clamp(
-    0.0,
-    rasterSize.height - 1,
-  );
+  final raster = fit.toRaster(localPosition);
 
-  return Offset(rx, ry);
+  // Clamped per axis after the inverse, never before: under rotation the two
+  // axes are mixed, so an out-of-bounds display point has to be mapped into
+  // raster space first for the clamp to land on the edge pixel the user is
+  // actually nearest to.
+  return Offset(
+    raster.dx.clamp(0.0, rasterSize.width - 1),
+    raster.dy.clamp(0.0, rasterSize.height - 1),
+  );
 }
