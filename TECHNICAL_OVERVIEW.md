@@ -11,6 +11,7 @@ This document covers the architecture, the raster pipeline, the view transform, 
 - [The View Transform and Coordinate Mapping](#the-view-transform-and-coordinate-mapping)
 - [Drawing Tools](#drawing-tools)
 - [Grid and Pixel Art Mode](#grid-and-pixel-art-mode)
+- [Mirror Mode](#mirror-mode)
 - [Flood Fill](#flood-fill)
 - [Undo and Redo](#undo-and-redo)
 - [Editor Load Path and State Management](#editor-load-path-and-state-management)
@@ -54,11 +55,13 @@ Rasterising on every pointer-move event would be far too expensive. Instead:
 - While the finger is down, the in-progress stroke is held as a lightweight `Stroke` (a tool, a color, a size, and a growing list of points) and painted as a **vector overlay** on top of the committed image each frame.
 - On pointer-up, the stroke is composited **once** into a new committed `ui.Image`, and the overlay is cleared.
 
-`DrawingCanvasPainter` does exactly this: it draws the committed image first, then — if an active stroke exists — paints it as vectors above, and finally the grid overlay if it is visible. The preview paint logic and the commit paint logic are deliberately kept identical per tool (same path construction, same blend modes, same spray dots) so what the user sees during the gesture is exactly what gets baked in.
+`DrawingCanvasPainter` does exactly this: it draws the committed image first, then — if an active stroke exists — paints it as vectors above, then its mirror stroke if mirror mode is on, and finally the grid overlay if it is visible. The preview paint logic and the commit paint logic are deliberately kept identical per tool (same path construction, same blend modes, same spray dots) so what the user sees during the gesture is exactly what gets baked in.
 
-All three layers are drawn inside a **single** transform block, in raster coordinates, applied once via `CanvasFit.applyTo()`. Each layer previously derived that transform for itself, which is the duplication that produced the spray and stroke-join bugs described under Drawing Tools; computing it once removes the opportunity to drift.
+All of the above are drawn inside a **single** transform block, in raster coordinates, applied once via `CanvasFit.applyTo()`. Each layer previously derived that transform for itself, which is the duplication that produced the spray and stroke-join bugs described under Drawing Tools; computing it once removes the opportunity to drift.
 
-The grid is drawn **last**, above the active stroke. It already sits above every committed pixel, so painting it beneath the in-progress overlay meant a live stroke covered grid lines until the frame it committed — most visible with the eraser, whose opaque white fill blanked them outright mid-drag. Drawing it last makes the live preview match the committed result for every tool.
+The grid is drawn **last** within that block, above the active stroke and its mirror. It already sits above every committed pixel, so painting it beneath the in-progress overlay meant a live stroke covered grid lines until the frame it committed — most visible with the eraser, whose opaque white fill blanked them outright mid-drag. Drawing it last makes the live preview match the committed result for every tool.
+
+One further layer sits **outside** that transform block entirely: the mirror axis guide line, drawn after `canvas.restore()` in plain display coordinates whenever `mirrorGuideVisible` is set. This is the one deliberate exception to "single transform block, computed once" — see Mirror Mode below for why the guide specifically must not rotate, pan, or zoom with the canvas the way every other layer does.
 
 ### CanvasController and ValueNotifier
 
@@ -73,11 +76,13 @@ The controller is **owned and created directly by `EditorScreen`**, not register
 ```dart
 final ui.Image    committedImage;   // last fully baked raster
 final Stroke?     activeStroke;      // in-progress vector overlay, or null
+final Stroke?     mirrorStroke;      // activeStroke's reflection, or null
 final bool        canUndo;
 final bool        canRedo;
 final bool        isDirty;           // pixels changed since last save/load/reset
 final ViewTransform view;            // user zoom/pan/rotation; identity = plain contain-fit
 final GridSettings  grid;            // overlay visibility and cell size
+final bool        mirrorGuideVisible; // standing render flag for the mirror axis line
 ```
 
 Because a pointer-move produces a new state every frame, the fields are kept minimal — the heavy `ui.Image` is passed by reference, not copied.
@@ -115,10 +120,11 @@ Rotation widens those extents. A rotated rectangle covers an axis-aligned span o
 
 ### Mapping touches back to pixels
 
-`CanvasFit` exposes the transform as two methods rather than leaving callers to rebuild it from `destination` and `scale`:
+`CanvasFit` exposes the transform as three methods rather than leaving callers to rebuild it from `destination` and `scale`:
 
 - `applyTo(Canvas)` — concatenates the raster-to-display transform, so the painter draws in buffer coordinates
 - `toRaster(Offset)` — the exact inverse, used by `localToRaster()` (`engine/coordinate_mapper.dart`)
+- `toDisplay(Offset)` — the exact inverse of `toRaster`, mapping a raster point back to display coordinates. Added for mirror mode (see Mirror Mode below), which needs to reason about a point's position in screen space regardless of the canvas's current rotation — something `toRaster` alone cannot do, since it only goes the other direction. Verified as an exact algebraic inverse by round-trip composition (`toRaster(toDisplay(p)) == p`) rather than by inspection alone, since a rotation-composition error here would be silent until someone rotated and mirrored at the same time.
 
 This matters once rotation exists: the destination rectangle alone no longer describes where the canvas is drawn, so any caller doing its own subtract-and-divide would silently ignore the angle.
 
@@ -223,6 +229,46 @@ Two restrictions follow from the stamp mechanic, both expressed by hiding contro
 - **Stroke size** is hidden from the hub root, since brush footprint is governed by the grid cell size instead.
 
 Hub nodes also switch from circles to tight-cornered squares throughout the entire hub while the mode is active, including the handle and colour swatches, as a deliberate universal switch. That change carries a geometry consequence: nodes sit at a fixed angular step, so adjacent centres are a chord that shrinks with the sine of half that angle. Circles tolerate this because their silhouette also shrinks away from the chord direction; squares do not, since their corners stay at full extent right up to the chord line. `hubPixelArtRadiusScale` (sqrt 2, the side-to-diagonal ratio) scales every arc radius while the mode is on, giving squares the same non-overlap guarantee circles already had.
+
+---
+
+## Mirror Mode
+
+### Reflecting in display space, not raster space
+
+The obvious implementation reflects a raster point about the raster buffer's own centre: `Offset(rasterSize.width - p.dx, rasterSize.height - p.dy)`. This is correct point symmetry, but it silently breaks the moment the canvas can be rotated — the fold axis is defined in raster coordinates, so it rotates along with the buffer, and the same on-screen gesture mirrors to a different physical location depending on the canvas's current angle. This was tried first and rejected on-device: a stroke drawn "on the left" landed "on the right" only at zero rotation.
+
+`CanvasController._reflect()` instead converts the raster point to display coordinates with `CanvasFit.toDisplay()`, mirrors it about the fixed horizontal centre of the canvas widget (`_displaySize.width / 2` — set once at layout, untouched by `_view.zoom`/`_view.pan`/`_view.rotation`), then converts the mirrored point back to raster coordinates with `CanvasFit.toRaster()`. Because the fold axis is defined in screen space and the conversion never reads the current rotation for the axis itself, the fold line stays visually fixed on screen through any zoom, pan, or rotation — a stroke on the physical left of the phone always mirrors to the physical right, regardless of how the canvas underneath it is turned. At rotation 0, `toDisplay`/`toRaster` short-circuit their rotation branch, so this reduces exactly to the naive raster-space formula in the common unrotated case.
+
+A gesture and a view-rotation change can never overlap: the two-finger navigation handling in `CanvasController` cancels any in-progress stroke the moment a second finger is detected, so a stroke and a rotation gesture are mutually exclusive by construction. `_view` is therefore guaranteed stable for the full lifetime of any single stroke `_reflect()` is called against — no mid-stroke race between a rotation gesture and a mirror reflection is possible.
+
+### Mirror stroke lifecycle
+
+`CanvasState.mirrorStroke` shadows `activeStroke` through the same pointer lifecycle, built and cleared in lockstep by `CanvasController`:
+
+- **`onPointerDown`** — if mirror mode is active and the tool isn't fill, a second `Stroke` is built from the reflected first point and stored as `mirrorStroke` alongside the primary.
+- **`onPointerMove`** — each new point is reflected and appended to `mirrorStroke` the same frame the primary stroke's point is appended, for both freehand and shape (two-point) strokes.
+- **Spray** — `_addSprayPoints` reflects each of that tick's newly-scattered points individually and appends them to the mirror stroke's own point list, rather than generating a second independent random cloud. This keeps the two clouds genuinely mirror-symmetric rather than merely similarly shaped. When the primary stroke's point count crosses `sprayFlushThreshold` and flushes to the raster, the mirror stroke flushes in the same pass, so the two never fall out of lockstep across a flush boundary.
+- **`onPointerUp`** — the primary stroke commits first (pushing an undo snapshot, unless spray already pushed one for this gesture), then the mirror stroke commits with `skipUndoPush: true` unconditionally. Two strokes land on the raster from one gesture, but only one undo step is recorded.
+- **`cancelStroke`** — clears `mirrorStroke` unconditionally alongside the existing unconditional clears (`_pendingFill`, `_sprayUndoSaved`), the same two-finger-navigation safety net every other stroke type already relies on.
+
+### Fill is excluded structurally, not by a special case
+
+Fill commits on `onPointerDown` rather than building an `activeStroke` — see the existing pointer-down fill branch, which returns before any stroke object exists. Mirror-stroke construction happens after that branch, so fill never reaches it; there is no `if (tool != fill)` guard anywhere in the mirror logic, because the control flow already makes fill's exclusion unconditional.
+
+### The mirror axis guide
+
+`DrawingCanvasPainter._paintMirrorGuide()` draws a single vertical line at `size.width / 2` in plain display coordinates, called after `canvas.restore()` — deliberately outside the raster transform block every other layer shares (see Committed Image versus Active Stroke above). Drawing it inside that block, like every other layer, would rotate the guide along with the canvas and defeat its purpose: the whole point is that the fold axis the guide represents does not rotate, so the guide itself cannot either.
+
+The guide renders whenever `CanvasState.mirrorGuideVisible` is true — a standing flag distinct from `mirrorStroke`, which only exists during an active gesture and says nothing about whether mirror mode is merely turned on with nothing currently being drawn. `mirrorGuideVisible` is synced from `EditorState.mirrorMode` into the controller by a `BlocListener` in `EditorScreen`, mirroring the existing grid-visibility sync (`setGridVisible`) rather than the read-at-draw-time pattern `pixelArtMode` uses — the guide line needs to render even with no stroke active, which a purely gesture-scoped flag cannot express.
+
+The guide is drawn in `Colors.black` at low alpha rather than white: the canvas substrate (`CanvasConstants.canvasColor`) is opaque white, so a light guide colour would be nearly invisible against the paper it is meant to be seen over.
+
+### Hub integration
+
+Pixel Art and Mirror are both direct-tap toggles at the hub root — tapping either calls its cubit setter and closes the hub immediately, with no sub-level to drill into (unlike Tools, Color, Size, and Grid, which each expand). This surfaced a latent close-animation race specific to `togglePixelArtMode`: because `EditorCubit.setPixelArtMode(true)` also forces `tool: DrawingTool.brush` and `gridVisible: true` in the same emit, and root's node set depends on the active tool (`_showsColor`/`_sizesFor`), firing that emit before the hub's collapse animation finished rebuilt the still-visible arc with a different node count mid-collapse — visible as a flash/fan-out. `EditorHub._closeHubThen()` fixes this by awaiting the reverse animation's own `Future` before running the toggle's side effects, so the mutation lands only once nothing is animating. Both Pixel Art and Mirror route through this helper for consistency, though Mirror's own toggle (`setMirrorMode`) has no such side effect today.
+
+Root grew from five category nodes to six with Mirror's addition, which pushed the arc layout past the node-count thresholds tuned for the previous five. See the `hubArcRadiusFive`/`hubArcRadiusSixInner`/`hubArcRadiusSixOuter` entries under Key Constants below for how the arc's per-count radius is chosen, and why 6 nodes uses a dedicated asymmetric 2-inner/4-outer split rather than either the single-row or the general two-row formula.
 
 ---
 
@@ -396,10 +442,11 @@ The onboarding overlay is deliberately **not** covered here. Its spacing became 
 | `hubHandleSize` | 64 | Diameter of the main hub handle button |
 | `hubNodeSize` | 44 | Diameter of each arc node button |
 | `hubEdgeMargin` | 24 | Distance from the screen edge to the hub handle |
-| `hubArcRadiusInner` | 105 | Inner arc row radius when two rows are shown |
+| `hubArcRadiusInner` | 105 | Inner arc row radius for the general two-row split (7+ nodes) |
 | `hubArcRadiusSingle` | 115 | Arc row radius when only one row is shown (up to 4 nodes) |
 | `hubArcRadiusFive` | 153 | Single-row radius at exactly 5 nodes; derived to match the proven 4-node adjacent-node clearance |
-| `hubArcRadiusOuter` | 190 | Outer arc row radius when two rows are shown |
+| `hubArcRadiusSixInner` / `hubArcRadiusSixOuter` | 80 / 140 | Dedicated 2-inner/4-outer split radii for exactly 6 nodes (root, after Mirror's addition); hand-tuned rather than derived — see Mirror Mode → Hub integration above |
+| `hubArcRadiusOuter` | 190 | Outer arc row radius for the general two-row split (7+ nodes) |
 | `hubPixelArtNodeRadius` | 3 | Corner radius of hub nodes while pixel art mode is active |
 | `hubPixelArtRadiusScale` | 1.41 | Arc radius multiplier in pixel art mode, so square nodes keep circles' non-overlap clearance |
 | `hubArcDuration` | 280ms | Hub open/close arc animation duration |

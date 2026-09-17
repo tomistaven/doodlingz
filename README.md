@@ -61,6 +61,7 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Zoom, pan, and rotate | Two-finger pinch zooms the canvas up to 5×; drag with two fingers to pan; twist with two fingers to rotate. Rotation snaps back to upright when you bring it within a few degrees of straight. Drawing with one finger works normally at any zoom, pan, or angle. The view resets to 1:1 and upright when opening a new or saved drawing |
 | Grid overlay | Toggleable grid in three cell sizes, drawn over the canvas as a guide. It scales, pans, and rotates with the canvas, and is never part of the saved image |
 | Pixel art mode | Snaps a square brush to the grid, one cell per stamp. Turning it on selects the brush and shows the grid; tools are limited to brush and eraser while it is active |
+| Mirror mode | Reflects every stroke across a vertical guide fixed to the middle of the screen. The guide line stays put on screen through zoom, pan, and rotation, so where a mirrored stroke lands is always predictable from where the guide currently sits — not from the canvas's own rotated orientation |
 | New / clear canvas | Start a fresh drawing or wipe the current canvas to white, with confirmation prompts |
 
 ### Gallery & Files
@@ -89,7 +90,6 @@ For the architecture, raster pipeline, flood-fill algorithm, and tool internals 
 | Feature | Notes |
 | --- | --- |
 | Canvas size picker | Extend the budget-bounded model with a new drawing dialog |
-| Mirror / symmetry | Horizontal and vertical — point reflection in `onPointerMove` |
 | Gradient tool | `Paint.shader` with `Gradient.linear` in `stroke_renderer` |
 | Pen pressure (touch) | Flutter pointer events carry a `pressure` field — device support varies |
 | Drawing tablet support | USB/Bluetooth stylus input via platform channel or `flutter_stylus` |
@@ -158,9 +158,9 @@ The white canvas fills the screen. Draw by dragging your finger. The tool hub ha
 
 ### Tool hub
 
-Tap the circular handle in the bottom corner to open the hub. The root level shows up to five category nodes: **Tools**, **Color**, **Size**, **Grid**, and **Pixel Art**. Tap a category to expand it into its options, then tap an option to select it and close the hub. While in a sub-level the handle shows a back arrow to return to the root.
+Tap the circular handle in the bottom corner to open the hub. The root level shows six category nodes: **Tools**, **Color**, **Size**, **Grid**, **Pixel Art**, and **Mirror**. Tools, Color, Size, and Grid expand into a sub-level of options — tap one to select it and close the hub. Pixel Art and Mirror are plain on/off switches: tapping either toggles the mode directly and closes the hub, with no sub-level to open. While in a sub-level the handle shows a back arrow to return to the root.
 
-The hub only shows controls that actually do something. The size node is hidden when the fill tool is active (fill has no stroke width) and while pixel art mode is on (the grid cell size governs the brush instead). The color node is hidden when the eraser is active, since the eraser always paints the canvas background color. The Grid node is highlighted while the grid is showing, and the Pixel Art node while the mode is on.
+The hub only shows controls that actually do something. The size node is hidden when the fill tool is active (fill has no stroke width) and while pixel art mode is on (the grid cell size governs the brush instead). The color node is hidden when the eraser is active, since the eraser always paints the canvas background color. The Grid, Pixel Art, and Mirror nodes are each highlighted while their mode is active.
 
 Tap the handle again or the scrim to close without changing anything.
 
@@ -174,7 +174,11 @@ All drawing tools work normally at any zoom, pan, or angle — strokes land unde
 
 Open **Grid** in the hub to show the grid and pick one of three cell sizes. The grid is a drawing guide only — it scales, pans, and rotates with the canvas, and never appears in a saved or exported image.
 
-Open **Pixel Art** to turn on pixel art mode. The brush becomes a square stamp that fills exactly one grid cell, so strokes land on the grid rather than between it. Turning the mode on selects the brush and shows the grid for you; turning it off leaves the grid however you last set it. While the mode is active only the brush and eraser are available — spray, fill, and the shape tools have no meaningful behaviour on a snapped square stamp — and the hub's nodes turn square to signal the mode at a glance.
+Tap **Pixel Art** to turn on pixel art mode. The brush becomes a square stamp that fills exactly one grid cell, so strokes land on the grid rather than between it. Turning the mode on selects the brush and shows the grid for you; turning it off leaves the grid however you last set it. While the mode is active only the brush and eraser are available — spray, fill, and the shape tools have no meaningful behaviour on a snapped square stamp — and the hub's nodes turn square to signal the mode at a glance.
+
+### Mirror mode
+
+Tap **Mirror** in the hub to turn it on. A faint vertical guide line appears, fixed to the horizontal middle of the screen — it stays exactly where it is through any amount of zoom, pan, or rotation, so you can always predict where a stroke will mirror to just by looking at the guide, not by tracking the canvas's current angle. Every stroke you draw is mirrored across that line in real time, as if folding the paper along it. This works with every tool except fill, which only fills where you tap. Turn the mode off from the same node; the guide disappears immediately.
 
 ### Shapes
 
@@ -255,6 +259,12 @@ The same reasoning drives what the hub hides while the mode is active. Stroke si
 ### Eraser as a white brush
 
 The eraser restores pixels to the canvas's fixed white color rather than using a transparency erase. This matches the requirement to restore the affected area to the default color and keeps the raster buffer — and exported PNGs — opaque.
+
+### Mirror mode reflects in screen space, not raster space
+
+A first implementation reflected each point about the raster buffer's own centre — `(width - x, height - y)`. That is genuine point symmetry, but it produces a result that is hard to predict once the canvas can rotate: the fold axis rotates along with the raster, so the same on-screen gesture mirrors to a different place depending on the canvas's current angle. Testing surfaced this immediately as unusable — a stroke drawn "on the left" would land "on the right" only at zero rotation, and somewhere else entirely once the canvas was turned.
+
+The fix reflects in **display space** instead: a raster point is converted to on-screen coordinates via `CanvasFit.toDisplay()` (the exact inverse of the existing `toRaster()`), mirrored about the fixed horizontal centre of the canvas widget, then converted back with `toRaster()`. Because this fold axis is defined in screen coordinates and never reads the current rotation, it stays visually put no matter how the canvas underneath it is turned — a stroke on the physical left of the phone always mirrors to the physical right, which is what makes the guide line usable as a predictor rather than something you have to mentally re-derive after every twist.
 
 ### Hand-drawn typography, applied per-slot rather than theme-wide
 
