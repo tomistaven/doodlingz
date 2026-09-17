@@ -63,6 +63,19 @@ class SettingsScreen extends StatelessWidget {
                   context.read<SettingsCubit>().triggerTutorial();
                 },
               ),
+              const Divider(),
+              const _SectionHeader('Diagnostics (for nerds)'),
+              SwitchListTile(
+                secondary: const Icon(Icons.bug_report_outlined),
+                title: const Text('Diagnostic overlay'),
+                subtitle: const Text(
+                  'Shows live stylus/pointer info while drawing',
+                ),
+                value: state.diagnosticsOverlayEnabled,
+                onChanged: (value) => context
+                    .read<SettingsCubit>()
+                    .setDiagnosticsOverlayEnabled(value: value),
+              ),
             ],
           );
         },

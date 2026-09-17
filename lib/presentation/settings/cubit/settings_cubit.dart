@@ -14,6 +14,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _themeKey = 'theme_mode';
   static const _hubOnRightKey = 'hub_on_right';
   static const _showTutorialKey = 'show_tutorial_on_startup';
+  static const _diagnosticsOverlayKey = 'diagnostics_overlay_enabled';
 
   void _loadAll() {
     final stored = _prefs.getString(_themeKey);
@@ -28,6 +29,8 @@ class SettingsCubit extends Cubit<SettingsState> {
         hubOnRight: _prefs.getBool(_hubOnRightKey) ?? false,
         showTutorialOnStartup: _prefs.getBool(_showTutorialKey) ?? true,
         pendingTutorial: false,
+        diagnosticsOverlayEnabled:
+            _prefs.getBool(_diagnosticsOverlayKey) ?? false,
       ),
     );
   }
@@ -50,6 +53,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setShowTutorialOnStartup({required bool value}) {
     _prefs.setBool(_showTutorialKey, value);
     emit(state.copyWith(showTutorialOnStartup: value));
+  }
+
+  void setDiagnosticsOverlayEnabled({required bool value}) {
+    _prefs.setBool(_diagnosticsOverlayKey, value);
+    emit(state.copyWith(diagnosticsOverlayEnabled: value));
   }
 
   /// Fires a signal that AppShell picks up to switch tabs and show the overlay.

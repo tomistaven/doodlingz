@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -50,6 +51,11 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   // stray-mark regression, and a transition trace pinpoints it immediately.
   static final bool _logGestures = false;
 
+  /// Last pointer event's diagnostics text, shown by the optional overlay
+  /// while [SettingsState.diagnosticsOverlayEnabled] is on. Null when no
+  /// pointer is currently down, which drives the overlay's fade-out.
+  String? _diagnosticsText;
+
   /// Completes when [CanvasController.initialise] returns.
   /// Load requests that arrive before init finishes await this before
   /// calling [CanvasController.loadImage], preventing a race between the
@@ -71,18 +77,45 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     super.dispose();
   }
 
-  void _onPointerDownRaw() {
+  void _onPointerDownRaw(PointerDownEvent event) {
     _rawPointers++;
     if (_rawPointers >= 2 && !_navigating) {
       _navigating = true;
       _zoomDiag('second pointer down -> navigation, cancelling stroke');
       _controller.cancelStroke();
     }
+    _updateDiagnostics(event);
+  }
+
+  void _onPointerMoveRaw(PointerMoveEvent event) {
+    _updateDiagnostics(event);
   }
 
   void _onPointerUpRaw() {
     if (_rawPointers > 0) _rawPointers--;
     if (_rawPointers == 0) _navigating = false;
+    if (_rawPointers == 0 && _diagnosticsText != null) {
+      setState(() => _diagnosticsText = null);
+    }
+  }
+
+  // Only reads pointer fields (kind, pressure) already carried by the events
+  // this screen needs anyway for gesture handling — no separate listener.
+  void _updateDiagnostics(PointerEvent event) {
+    if (!context.read<SettingsCubit>().state.diagnosticsOverlayEnabled) {
+      return;
+    }
+    final kindLabel = switch (event.kind) {
+      PointerDeviceKind.stylus => 'Stylus',
+      PointerDeviceKind.invertedStylus => 'Stylus (inv)',
+      PointerDeviceKind.touch => 'Touch',
+      PointerDeviceKind.mouse => 'Mouse',
+      PointerDeviceKind.trackpad => 'Trackpad',
+      PointerDeviceKind.unknown => 'Unknown',
+    };
+    final text = '$kindLabel · P: ${event.pressure.toStringAsFixed(3)}';
+    if (text == _diagnosticsText) return;
+    setState(() => _diagnosticsText = text);
   }
 
   void _onScaleStart(ScaleStartDetails details, EditorState editorState) {
@@ -317,7 +350,8 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                             ),
                           ),
                           child: Listener(
-                            onPointerDown: (_) => _onPointerDownRaw(),
+                            onPointerDown: _onPointerDownRaw,
+                            onPointerMove: _onPointerMoveRaw,
                             onPointerUp: (_) => _onPointerUpRaw(),
                             onPointerCancel: (_) => _onPointerUpRaw(),
                             child: GestureDetector(
@@ -342,6 +376,44 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
               },
             ),
             const Positioned.fill(child: EditorHub()),
+            BlocBuilder<SettingsCubit, SettingsState>(
+              buildWhen: (previous, current) =>
+                  previous.diagnosticsOverlayEnabled !=
+                  current.diagnosticsOverlayEnabled,
+              builder: (context, settings) {
+                if (!settings.diagnosticsOverlayEnabled) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: 8,
+                  left: 8,
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: _diagnosticsText == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 150),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _diagnosticsText ?? '',
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
             BlocBuilder<SettingsCubit, SettingsState>(
               builder: (context, settings) {
                 if (_tutorialDismissedThisSession ||
