@@ -32,6 +32,23 @@ abstract final class UiConstants {
   /// chord(r, 5 nodes, 80°) == chord(115, 4 nodes, 80°) gives r ≈ 152.7.
   static const double hubArcRadiusFive = 153;
 
+  /// Inner-row radius for the dedicated 2 inner + 4 outer split used only at
+  /// exactly 6 nodes. Hand-tuned, not derived: the single-row treatment
+  /// tried first (hubArcRadiusSix) correctly avoided the two-row layout's
+  /// disconnected-cluster failure (see [hubArcRadiusOuter]) but pushed the
+  /// arc too far up the screen for a comfortable thumb reach. This pair
+  /// brings the row back down while staying far enough from
+  /// [hubArcRadiusSixOuter] to still read as one cohesive menu rather than
+  /// two floating clusters — verify on-device before trusting the exact
+  /// numbers, the same way [hubArcRadiusFive]/[hubArcRadiusSix] were.
+  static const double hubArcRadiusSixInner = 80;
+
+  /// Outer-row radius paired with [hubArcRadiusSixInner]. 60px further out
+  /// than the inner row — deliberately a tighter gap than
+  /// [hubArcRadiusOuter] minus [hubArcRadiusInner] (85px), since a 2+4 split
+  /// has less to visually bridge between rows than the 7+ node case does.
+  static const double hubArcRadiusSixOuter = 140;
+
   /// Radius of the outer arc row when two rows are shown.
   static const double hubArcRadiusOuter = 190;
 

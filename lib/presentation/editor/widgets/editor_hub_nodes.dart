@@ -25,6 +25,7 @@ mixin HubNodes on State<EditorHub> {
   void toggleGridVisible(bool visible);
   void selectGridCellSize(double cellSize);
   void togglePixelArtMode(bool enabled);
+  void toggleMirrorMode(bool enabled);
 
   void openCustomPicker() {
     final cubit = context.read<EditorCubit>();
@@ -224,29 +225,6 @@ mixin HubNodes on State<EditorHub> {
         child: Icon(
           Icons.grid_on,
           color: visible ? colorScheme.primary : Colors.white,
-          size: 22,
-        ),
-      ),
-    );
-  }
-
-  /// Deliberately a retro/gaming glyph, not a grid or dot pattern — the
-  /// earlier Icons.apps (a 3x3 dot grid) risked reading as "another grid
-  /// option" next to the grid toggle's crosshatch icon, exactly the
-  /// confusion this icon needs to avoid.
-  Widget buildPixelArtToggleNode(bool enabled) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: enabled ? 'Exit pixel art mode' : 'Pixel art mode',
-      preferBelow: false,
-      child: buildCircle(
-        onTap: () => togglePixelArtMode(!enabled),
-        color: UiConstants.hubSurface,
-        borderColor: enabled ? colorScheme.primary : colorScheme.outline,
-        borderWidth: enabled ? 3 : 1.5,
-        child: Icon(
-          Icons.videogame_asset,
-          color: enabled ? colorScheme.primary : Colors.white,
           size: 22,
         ),
       ),

@@ -13,7 +13,7 @@ import '../cubit/editor_state.dart';
 import 'editor_hub_nodes.dart';
 
 // Public so the HubNodes mixin can reference it across files.
-enum HubLevel { root, tools, colors, sizes, grid, pixelArt }
+enum HubLevel { root, tools, colors, sizes, grid }
 
 /// Floating radial control hub for the editor.
 ///
@@ -81,6 +81,27 @@ class _EditorHubState extends State<EditorHub>
     _animController.reverse();
   }
 
+  /// Closes the hub and waits for the collapse animation to finish before
+  /// running [afterClose].
+  ///
+  /// Plain [closeHub] starts the reverse animation and returns immediately,
+  /// which is fine for a toggle with no side effects on the hub's own
+  /// layout — [selectTool]/[selectColor]/[selectSize] all close this way.
+  /// [togglePixelArtMode] is different: it also forces `tool: brush` and
+  /// `gridVisible: true` in the same cubit emit, and root's node set depends
+  /// on the active tool ([_showsColor]/[_sizesFor]). Firing that emit before
+  /// the reverse animation completes rebuilds the still-visible arc with a
+  /// different node count and a different [pixelArtMode] radius scale mid-
+  /// collapse — visible as a flash/fan-out right as the hub is closing. This
+  /// wrapper defers the mutation until nothing is animating, so the close
+  /// plays out against the layout that was actually open when it was tapped.
+  Future<void> _closeHubThen(VoidCallback afterClose) async {
+    setState(() => _isOpen = false);
+    await _animController.reverse();
+    if (!mounted) return;
+    afterClose();
+  }
+
   @override
   void goTo(HubLevel level) {
     setState(() => _currentLevel = level);
@@ -118,6 +139,11 @@ class _EditorHubState extends State<EditorHub>
   @override
   void togglePixelArtMode(bool enabled) {
     context.read<EditorCubit>().setPixelArtMode(enabled);
+  }
+
+  @override
+  void toggleMirrorMode(bool enabled) {
+    context.read<EditorCubit>().setMirrorMode(enabled);
   }
 
   List<double> _sizesFor(DrawingTool tool) {
@@ -312,17 +338,41 @@ class _EditorHubState extends State<EditorHub>
     // caused by hubArcRadiusSingle (115) being sized for up to 4 nodes, not
     // by single-row layout being wrong for 5 — a larger single-row radius
     // fixes the actual cause without the two-row layout's side effect.
-    final bool useTwoRows = count > 5;
-    final int innerCount = useTwoRows ? (count / 2).floor() : count;
+    //
+    // count == 6 (root gained the mirror-mode toggle) got the same
+    // single-row treatment at first, for the same reason — but a single row
+    // of 6 pushes the arc uncomfortably far up the screen for a one-handed
+    // reach, which the disconnected-cluster judgement above never weighed
+    // against. Rather than reuse hubArcRadiusInner/Outer (still wrong here
+    // for the reason above) or fall back to a fully dynamic per-row radius
+    // formula (tried and abandoned: with only 1–9 nodes ever on this hub,
+    // any floor/gap tight enough to let the formula move small rows closer
+    // to the handle also lets it collide with itself at the equal 3+3/4+4
+    // splits elsewhere in that range — see hubArcRadiusSixInner/Outer's own
+    // doc comment), 6 nodes gets one dedicated split: 2 inner + 4 outer,
+    // asymmetric on purpose so the two rows land at genuinely different
+    // radii, at a hand-tuned pair closer to the handle than the 7+ node case.
+    final bool useTwoRows = count >= 6;
+    final int innerCount = count == 6
+        ? 2
+        : (useTwoRows ? (count / 2).floor() : count);
     final bool isOuter = index >= innerCount;
     final int rowCount = isOuter ? (count - innerCount) : innerCount;
     final int rowIndex = isOuter ? index - innerCount : index;
 
-    final double targetRadius = (useTwoRows
-            ? (isOuter ? UiConstants.hubArcRadiusOuter : UiConstants.hubArcRadiusInner)
-            : (count == 5
-                ? UiConstants.hubArcRadiusFive
-                : UiConstants.hubArcRadiusSingle)) *
+    final double targetRadius =
+        (count == 6
+            ? (isOuter
+                  ? UiConstants.hubArcRadiusSixOuter
+                  : UiConstants.hubArcRadiusSixInner)
+            : useTwoRows
+            ? (isOuter
+                  ? UiConstants.hubArcRadiusOuter
+                  : UiConstants.hubArcRadiusInner)
+            : switch (count) {
+                5 => UiConstants.hubArcRadiusFive,
+                _ => UiConstants.hubArcRadiusSingle,
+              }) *
         radiusScale;
     final double distance = targetRadius * t;
 
@@ -393,9 +443,18 @@ class _EditorHubState extends State<EditorHub>
           ),
           buildCategoryNode(
             icon: Icons.videogame_asset,
-            onTap: () => goTo(HubLevel.pixelArt),
+            onTap: () => _closeHubThen(
+              () => togglePixelArtMode(!state.pixelArtMode),
+            ),
             tooltip: 'Pixel Art',
             selected: state.pixelArtMode,
+          ),
+          buildCategoryNode(
+            icon: Icons.flip,
+            onTap: () =>
+                _closeHubThen(() => toggleMirrorMode(!state.mirrorMode)),
+            tooltip: 'Mirror',
+            selected: state.mirrorMode,
           ),
         ];
       case HubLevel.tools:
@@ -434,8 +493,6 @@ class _EditorHubState extends State<EditorHub>
             ),
           ),
         ];
-      case HubLevel.pixelArt:
-        return [buildPixelArtToggleNode(state.pixelArtMode)];
     }
   }
 
