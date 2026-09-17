@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -33,33 +33,17 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   bool _tutorialDismissedThisSession = false;
   bool _tutorialRequestedThisSession = false;
 
-  // True for the rest of a gesture once it has become multi-touch, so a pinch
-  // never reverts to drawing. Lifting one finger out of a pinch keeps the
-  // gesture navigational, so release can't resurrect a stroke and commit a
-  // stray mark. Driven by raw pointer count, reset when all fingers lift.
   bool _navigating = false;
-
-  // Raw pointer count from a Listener, not the scale recogniser. When two
-  // fingers land a fraction apart the recogniser reports start -> end -> start
-  // rather than one continuous gesture, and that middle end would commit the
-  // first finger's stroke as a stray dot. Raw down events fire before the arena
-  // re-resolves, so the second finger cancels the stroke before any commit.
   int _rawPointers = 0;
-
-  // Hand-flip to true on-device to trace gesture transitions in the log. Baked
-  // in because escalation handling is the one part of this feature prone to the
-  // stray-mark regression, and a transition trace pinpoints it immediately.
   static final bool _logGestures = false;
 
-  /// Last pointer event's diagnostics text, shown by the optional overlay
-  /// while [SettingsState.diagnosticsOverlayEnabled] is on. Null when no
-  /// pointer is currently down, which drives the overlay's fade-out.
-  String? _diagnosticsText;
+  final ValueNotifier<String> _diagnostics = ValueNotifier<String>(
+    'waiting for pointer',
+  );
 
-  /// Completes when [CanvasController.initialise] returns.
-  /// Load requests that arrive before init finishes await this before
-  /// calling [CanvasController.loadImage], preventing a race between the
-  /// cold-launch blank creation and an incoming image swap.
+  final ValueNotifier<Offset?> _stylusCursor = ValueNotifier<Offset?>(null);
+  final ValueNotifier<bool> _isStylusDown = ValueNotifier<bool>(false);
+
   final Completer<void> _initCompleter = Completer<void>();
 
   @override
@@ -73,49 +57,76 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
 
   @override
   void dispose() {
+    _diagnostics.dispose();
+    _stylusCursor.dispose();
+    _isStylusDown.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   void _onPointerDownRaw(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.stylus ||
+        event.kind == PointerDeviceKind.invertedStylus) {
+      _isStylusDown.value = true;
+    }
+    
     _rawPointers++;
     if (_rawPointers >= 2 && !_navigating) {
       _navigating = true;
       _zoomDiag('second pointer down -> navigation, cancelling stroke');
       _controller.cancelStroke();
     }
-    _updateDiagnostics(event);
+    _onPointerEvent(event, 'DOWN ');
   }
 
   void _onPointerMoveRaw(PointerMoveEvent event) {
-    _updateDiagnostics(event);
+    _onPointerEvent(event, 'MOVE ');
   }
 
-  void _onPointerUpRaw() {
+  void _onPointerHoverRaw(PointerHoverEvent event) {
+    _onPointerEvent(event, 'HOVER');
+  }
+
+  void _onPointerUpRaw(PointerEvent event) {
+    if (event.kind == PointerDeviceKind.stylus ||
+        event.kind == PointerDeviceKind.invertedStylus) {
+      _isStylusDown.value = false;
+    }
+    
     if (_rawPointers > 0) _rawPointers--;
     if (_rawPointers == 0) _navigating = false;
-    if (_rawPointers == 0 && _diagnosticsText != null) {
-      setState(() => _diagnosticsText = null);
-    }
+    _onPointerEvent(event, 'UP   ');
   }
 
-  // Only reads pointer fields (kind, pressure) already carried by the events
-  // this screen needs anyway for gesture handling — no separate listener.
-  void _updateDiagnostics(PointerEvent event) {
+  void _onPointerEvent(PointerEvent event, String phase) {
+    _updateStylusCursor(event);
+    _updateDiagnostics(event, phase);
+  }
+
+  void _updateStylusCursor(PointerEvent event) {
+    if (event.kind != PointerDeviceKind.stylus &&
+        event.kind != PointerDeviceKind.invertedStylus) {
+      return;
+    }
+    _stylusCursor.value = event.localPosition;
+  }
+
+  void _updateDiagnostics(PointerEvent event, String phase) {
     if (!context.read<SettingsCubit>().state.diagnosticsOverlayEnabled) {
       return;
     }
     final kindLabel = switch (event.kind) {
       PointerDeviceKind.stylus => 'Stylus',
-      PointerDeviceKind.invertedStylus => 'Stylus (inv)',
+      PointerDeviceKind.invertedStylus => 'Stylus(inv)',
       PointerDeviceKind.touch => 'Touch',
       PointerDeviceKind.mouse => 'Mouse',
       PointerDeviceKind.trackpad => 'Trackpad',
       PointerDeviceKind.unknown => 'Unknown',
     };
-    final text = '$kindLabel · P: ${event.pressure.toStringAsFixed(3)}';
-    if (text == _diagnosticsText) return;
-    setState(() => _diagnosticsText = text);
+    _diagnostics.value =
+        '$phase $kindLabel  P:${event.pressure.toStringAsFixed(3)}\n'
+        '(${event.localPosition.dx.round()}, '
+        '${event.localPosition.dy.round()})';
   }
 
   void _onScaleStart(ScaleStartDetails details, EditorState editorState) {
@@ -173,8 +184,6 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
     });
   }
 
-  // The canvas widget is constrained to the raster's aspect ratio, so the size
-  // the coordinate mapper sees is the fitted rect, not the whole editor area.
   Size _canvasDisplaySize(Size areaSize, Size rasterSize) {
     return fitRasterInDisplay(
       rasterSize: rasterSize,
@@ -226,8 +235,6 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
 
       if (choice == _LoadChoice.save) {
         await save();
-        // save() can itself be cancelled at the bottom sheet; if the canvas
-        // is still dirty the user backed out, so abort the load too.
         if (!mounted || _controller.value.isDirty) {
           cubit.cancelLoad();
           return;
@@ -323,74 +330,72 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
         _ensureCanvasInitialised(constraints);
         final areaSize = Size(constraints.maxWidth, constraints.maxHeight);
         _controller.setEditorArea(areaSize);
-        return Stack(
-          children: [
-            const Positioned.fill(
-              child: ColoredBox(color: CanvasConstants.canvasMarginColor),
-            ),
-            BlocBuilder<EditorCubit, EditorState>(
-              builder: (context, editorState) {
-                return ValueListenableBuilder<CanvasState>(
-                  valueListenable: _controller,
-                  builder: (_, state, _) {
-                    final raster = _controller.rasterSize;
-                    // Keep the mapper's display size in step with the fitted
-                    // rect whenever an import reshapes the raster.
-                    _controller.updateDisplaySize(
-                      _canvasDisplaySize(areaSize, raster),
-                    );
-                    return Center(
-                      child: AspectRatio(
-                        aspectRatio: raster.width / raster.height,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: CanvasConstants.canvasBorderColor,
-                              width: CanvasConstants.canvasBorderWidth,
+        return Listener(
+          onPointerHover: _onPointerHoverRaw,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: ColoredBox(color: CanvasConstants.canvasMarginColor),
+              ),
+              BlocBuilder<EditorCubit, EditorState>(
+                builder: (context, editorState) {
+                  return ValueListenableBuilder<CanvasState>(
+                    valueListenable: _controller,
+                    builder: (_, state, _) {
+                      final raster = _controller.rasterSize;
+                      _controller.updateDisplaySize(
+                        _canvasDisplaySize(areaSize, raster),
+                      );
+                      return Center(
+                        child: AspectRatio(
+                          aspectRatio: raster.width / raster.height,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: CanvasConstants.canvasBorderColor,
+                                width: CanvasConstants.canvasBorderWidth,
+                              ),
                             ),
-                          ),
-                          child: Listener(
-                            onPointerDown: _onPointerDownRaw,
-                            onPointerMove: _onPointerMoveRaw,
-                            onPointerUp: (_) => _onPointerUpRaw(),
-                            onPointerCancel: (_) => _onPointerUpRaw(),
-                            child: GestureDetector(
-                              onScaleStart: (d) =>
-                                  _onScaleStart(d, editorState),
-                              onScaleUpdate: _onScaleUpdate,
-                              onScaleEnd: _onScaleEnd,
-                              child: ColoredBox(
-                                color: CanvasConstants.canvasColor,
-                                child: CustomPaint(
-                                  painter: DrawingCanvasPainter(state: state),
-                                  size: Size.infinite,
+                            child: Listener(
+                              onPointerDown: _onPointerDownRaw,
+                              onPointerMove: _onPointerMoveRaw,
+                              onPointerUp: _onPointerUpRaw,
+                              onPointerCancel: _onPointerUpRaw,
+                              child: GestureDetector(
+                                onScaleStart: (d) =>
+                                    _onScaleStart(d, editorState),
+                                onScaleUpdate: _onScaleUpdate,
+                                onScaleEnd: _onScaleEnd,
+                                child: ColoredBox(
+                                  color: CanvasConstants.canvasColor,
+                                  child: CustomPaint(
+                                    painter: DrawingCanvasPainter(state: state),
+                                    size: Size.infinite,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-            const Positioned.fill(child: EditorHub()),
-            BlocBuilder<SettingsCubit, SettingsState>(
-              buildWhen: (previous, current) =>
-                  previous.diagnosticsOverlayEnabled !=
-                  current.diagnosticsOverlayEnabled,
-              builder: (context, settings) {
-                if (!settings.diagnosticsOverlayEnabled) {
-                  return const SizedBox.shrink();
-                }
-                return Positioned(
-                  top: 8,
-                  left: 8,
-                  child: IgnorePointer(
-                    child: AnimatedOpacity(
-                      opacity: _diagnosticsText == null ? 0 : 1,
-                      duration: const Duration(milliseconds: 150),
+                      );
+                    },
+                  );
+                },
+              ),
+              const Positioned.fill(child: EditorHub()),
+              _StylusCursor(position: _stylusCursor, isDown: _isStylusDown),
+              BlocBuilder<SettingsCubit, SettingsState>(
+                buildWhen: (previous, current) =>
+                    previous.diagnosticsOverlayEnabled !=
+                    current.diagnosticsOverlayEnabled,
+                builder: (context, settings) {
+                  if (!settings.diagnosticsOverlayEnabled) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    top: 8,
+                    left: 8,
+                    child: IgnorePointer(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -400,40 +405,44 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(
-                          _diagnosticsText ?? '',
-                          style: const TextStyle(
-                            color: Colors.greenAccent,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
+                        child: ValueListenableBuilder<String>(
+                          valueListenable: _diagnostics,
+                          builder: (_, text, _) => Text(
+                            text,
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 11,
+                              height: 1.35,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-            BlocBuilder<SettingsCubit, SettingsState>(
-              builder: (context, settings) {
-                if (_tutorialDismissedThisSession ||
-                    (!settings.showTutorialOnStartup &&
-                        !_tutorialRequestedThisSession)) {
-                  return const SizedBox.shrink();
-                }
-                return Positioned.fill(
-                  child: OnboardingOverlay(
-                    onDismiss: () {
-                      setState(() {
-                        _tutorialDismissedThisSession = true;
-                        _tutorialRequestedThisSession = false;
-                      });
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
+                  );
+                },
+              ),
+              BlocBuilder<SettingsCubit, SettingsState>(
+                builder: (context, settings) {
+                  if (_tutorialDismissedThisSession ||
+                      (!settings.showTutorialOnStartup &&
+                          !_tutorialRequestedThisSession)) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned.fill(
+                    child: OnboardingOverlay(
+                      onDismiss: () {
+                        setState(() {
+                          _tutorialDismissedThisSession = true;
+                          _tutorialRequestedThisSession = false;
+                        });
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -465,3 +474,81 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
 }
 
 enum _LoadChoice { cancel, discard, save }
+
+class _StylusCursor extends StatelessWidget {
+  const _StylusCursor({required this.position, required this.isDown});
+
+  final ValueNotifier<Offset?> position;
+  final ValueNotifier<bool> isDown;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Offset?>(
+      valueListenable: position,
+      builder: (_, offset, _) {
+        if (offset == null) return const SizedBox.shrink();
+        return ValueListenableBuilder<bool>(
+          valueListenable: isDown,
+          builder: (_, down, _) {
+            final double size = down ? 12.0 : 24.0;
+            return Positioned(
+              left: offset.dx - size / 2,
+              top: offset.dy - size / 2,
+              child: IgnorePointer(
+                child: CustomPaint(
+                  size: Size.square(size),
+                  painter: _StylusCursorPainter(isDown: down),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _StylusCursorPainter extends CustomPainter {
+  _StylusCursorPainter({required this.isDown});
+  
+  final bool isDown;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2;
+
+    final shadow = Paint()
+      ..color = Colors.black45
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+      
+    final outline = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    // Draw the main circle
+    canvas.drawCircle(center, radius, shadow);
+    canvas.drawCircle(center, radius, outline);
+
+    // Draw the center dot only if hovering (stylus up)
+    if (!isDown) {
+      final dotFill = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      final dotShadow = Paint()
+        ..color = Colors.black87
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+        
+      canvas.drawCircle(center, 2, dotFill);
+      canvas.drawCircle(center, 2, dotShadow);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StylusCursorPainter oldDelegate) {
+    return oldDelegate.isDown != isDown;
+  }
+}
