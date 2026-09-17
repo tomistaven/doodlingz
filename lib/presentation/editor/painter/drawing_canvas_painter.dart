@@ -5,13 +5,14 @@ import '../engine/canvas_fit.dart';
 import '../engine/grid_renderer.dart';
 import '../engine/stroke_renderer.dart';
 
-/// Renders the committed raster image, the active stroke overlay and the grid.
+/// Renders the committed raster image, the active stroke overlay (plus its
+/// mirror, if mirror mode is on), the grid, and the mirror axis guide.
 ///
-/// All three are drawn inside a single transform block in raster coordinates,
-/// so the view's zoom, pan and rotation are applied once and cannot diverge
-/// between layers. The committed image is drawn first, then the in-progress
-/// stroke on top as a cheap vector overlay — avoiding a full raster commit on
-/// every pointer-move event — and the grid last of all.
+/// The raster image, strokes, and grid are drawn inside a single transform
+/// block in raster coordinates, so the view's zoom, pan and rotation are
+/// applied once and cannot diverge between layers. The mirror axis guide is
+/// the one layer drawn outside that block, in plain display coordinates —
+/// see the comment at its call site for why.
 class DrawingCanvasPainter extends CustomPainter {
   const DrawingCanvasPainter({required this.state});
 
@@ -53,6 +54,11 @@ class DrawingCanvasPainter extends CustomPainter {
       paintStroke(canvas, stroke);
     }
 
+    final mirrorStroke = state.mirrorStroke;
+    if (mirrorStroke != null && mirrorStroke.points.isNotEmpty) {
+      paintStroke(canvas, mirrorStroke);
+    }
+
     // Drawn last so the grid sits above the live stroke the same way it sits
     // above committed pixels. Painting it under the overlay let an in-progress
     // stroke cover grid lines until the frame it committed — most visible with
@@ -62,6 +68,27 @@ class DrawingCanvasPainter extends CustomPainter {
     }
 
     canvas.restore();
+
+    // Drawn after canvas.restore(), so entirely outside the raster transform
+    // block — the same reason CanvasController._reflect converts through
+    // display space rather than reflecting in raster coordinates. The guide
+    // marks a line fixed on screen; if it were drawn inside the rotated
+    // block it would rotate with the canvas and stop matching the axis
+    // strokes are actually being folded across.
+    if (state.mirrorGuideVisible) {
+      _paintMirrorGuide(canvas, size);
+    }
+  }
+
+  void _paintMirrorGuide(Canvas canvas, Size size) {
+    // The canvas paper is opaque white (CanvasConstants.canvasColor), so a
+    // light guide colour would be nearly invisible against it — needs a dark
+    // tone to read as a line rather than disappear into the paper.
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.25)
+      ..strokeWidth = 1.5;
+    final x = size.width / 2;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
   }
 
   @override

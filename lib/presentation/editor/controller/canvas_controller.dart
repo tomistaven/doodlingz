@@ -61,6 +61,11 @@ class CanvasController extends ValueNotifier<CanvasState> {
   // on the next pointer-move frame, since _notifyWithStroke fires every drag.
   GridSettings _grid = GridSettings.disabled;
 
+  // Standing render flag for the mirror axis guide, synced from EditorState
+  // the same way _grid is. Distinct from _mirrorActive: this says whether
+  // the guide should be visible at all, independent of any active stroke.
+  bool _mirrorGuideVisible = false;
+
   // Zoom and rotation at the start of the active scale gesture, so cumulative
   // deltas in applyGesture compose onto wherever the previous gesture left the
   // view.
@@ -89,6 +94,11 @@ class CanvasController extends ValueNotifier<CanvasState> {
   // taken once at pointer-down (before any flush), not per-flush, so the whole
   // spray gesture stays a single undo step.
   bool _sprayUndoSaved = false;
+
+  // Whether the stroke started under mirror mode. Locked at pointer-down like
+  // isPixelArt on Stroke itself, so toggling mirror mid-drag has no effect on
+  // an already-active gesture.
+  bool _mirrorActive = false;
 
   /// Current raster buffer dimensions. Drives the canvas widget's aspect ratio.
   Size get rasterSize => _rasterSize;
@@ -136,6 +146,12 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(value.committedImage, value.activeStroke);
   }
 
+  /// Toggles the mirror axis guide line on or off.
+  void setMirrorGuideVisible(bool visible) {
+    _mirrorGuideVisible = visible;
+    _notify(value.committedImage, value.activeStroke);
+  }
+
   void onPointerDown(
     Offset localPosition,
     DrawingTool tool,
@@ -143,6 +159,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     double size, {
     bool isPixelArt = false,
     double pixelCellSize = 0,
+    bool mirror = false,
   }) {
     if (!_initialised) return;
 
@@ -165,6 +182,11 @@ class CanvasController extends ValueNotifier<CanvasState> {
       return;
     }
 
+    // Fill is excluded: it commits on pointer-down rather than pointer-up, so
+    // it never reaches an active stroke for the mirror to shadow — see the
+    // fill branch above, which already returns before this point.
+    _mirrorActive = mirror;
+
     final stroke = Stroke(
       drawingTool: tool,
       color: tool == DrawingTool.eraser ? CanvasConstants.canvasColor : color,
@@ -174,6 +196,17 @@ class CanvasController extends ValueNotifier<CanvasState> {
       points: [rasterPoint],
     );
 
+    final mirrorStroke = _mirrorActive
+        ? Stroke(
+            drawingTool: stroke.drawingTool,
+            color: stroke.color,
+            size: stroke.size,
+            isPixelArt: isPixelArt,
+            pixelCellSize: pixelCellSize,
+            points: [_reflect(rasterPoint, isPixelArt, pixelCellSize)],
+          )
+        : null;
+
     // Spray flushes mid-stroke, so the undo snapshot must be taken here at
     // pointer-down — before any flush — so the whole gesture stays one undo step.
     if (tool == DrawingTool.spray) {
@@ -181,7 +214,40 @@ class CanvasController extends ValueNotifier<CanvasState> {
       _sprayUndoSaved = true;
     }
 
-    _notifyWithStroke(stroke);
+    _notifyWithStroke(stroke, mirrorStroke: mirrorStroke);
+  }
+
+  /// Reflects [point] about a vertical line fixed on-screen through the
+  /// centre of the canvas widget — not about the raster's own centre.
+  ///
+  /// The fold line must stay put on screen as the view rotates, so a point
+  /// that is "on the left" keeps mirroring to the same physical right-hand
+  /// side of the display regardless of the current rotation. [_rasterSize]
+  /// alone can't express that once rotated: raster space rotates with the
+  /// canvas, so a fold computed there would rotate too. Converting through
+  /// [CanvasFit.toDisplay]/[toRaster] does the reflection in display space,
+  /// where "vertical" has a fixed, rotation-independent meaning, then maps
+  /// the result back onto the raster buffer the stroke is actually stored in.
+  ///
+  /// At rotation 0 this reduces to the raster's own vertical centre line,
+  /// since display and raster space share the same orientation there.
+  Offset _reflect(Offset point, bool isPixelArt, double pixelCellSize) {
+    final fit = fitRasterWithView(
+      rasterSize: _rasterSize,
+      displaySize: _displaySize,
+      zoom: _view.zoom,
+      pan: _view.pan,
+      rotation: _view.rotation,
+    );
+
+    final display = fit.toDisplay(point);
+    final mirroredDisplay = Offset(
+      _displaySize.width - display.dx,
+      display.dy,
+    );
+    final reflected = fit.toRaster(mirroredDisplay);
+
+    return isPixelArt ? snapToGrid(reflected, pixelCellSize) : reflected;
   }
 
   Future<void> onPointerMove(Offset localPosition) async {
@@ -202,12 +268,20 @@ class CanvasController extends ValueNotifier<CanvasState> {
       rasterPoint = snapToGrid(rasterPoint, current.pixelCellSize);
     }
 
+    final mirror = value.mirrorStroke;
+
     if (current.isFreehand) {
       if (current.drawingTool == DrawingTool.spray) {
-        await _addSprayPoints(current, rasterPoint);
+        await _addSprayPoints(current, rasterPoint, mirror);
         return;
       }
-      _notifyWithStroke(current.withPoint(rasterPoint));
+      final reflectedPoint = mirror == null
+          ? null
+          : _reflect(rasterPoint, current.isPixelArt, current.pixelCellSize);
+      _notifyWithStroke(
+        current.withPoint(rasterPoint),
+        mirrorStroke: mirror?.withPoint(reflectedPoint!),
+      );
       return;
     }
 
@@ -217,10 +291,21 @@ class CanvasController extends ValueNotifier<CanvasState> {
       size: current.size,
       points: [current.points.first, rasterPoint],
     );
-    _notifyWithStroke(updated);
+    final updatedMirror = mirror == null
+        ? null
+        : Stroke(
+            drawingTool: mirror.drawingTool,
+            color: mirror.color,
+            size: mirror.size,
+            points: [
+              mirror.points.first,
+              _reflect(rasterPoint, false, 0),
+            ],
+          );
+    _notifyWithStroke(updated, mirrorStroke: updatedMirror);
   }
 
-  void onPointerUp() {
+  Future<void> onPointerUp() async {
     if (!_initialised) return;
 
     final fillPoint = _pendingFill;
@@ -234,9 +319,18 @@ class CanvasController extends ValueNotifier<CanvasState> {
 
     final stroke = value.activeStroke;
     if (stroke == null) return;
+    final mirrorStroke = value.mirrorStroke;
     final sprayAlreadySaved = _sprayUndoSaved;
     _sprayUndoSaved = false;
-    _commitStroke(stroke, skipUndoPush: sprayAlreadySaved);
+    _mirrorActive = false;
+
+    await _commitStroke(stroke, skipUndoPush: sprayAlreadySaved);
+    // The primary commit above already pushed (or the spray flush already
+    // pushed) the undo snapshot for this gesture, so the mirror commit must
+    // never push a second one — two strokes from one gesture stay one step.
+    if (mirrorStroke != null) {
+      await _commitStroke(mirrorStroke, skipUndoPush: true);
+    }
   }
 
   /// Discards an in-progress action without committing it or touching history.
@@ -251,6 +345,7 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _pendingFill = null;
     _pendingFillColor = null;
     _sprayUndoSaved = false;
+    _mirrorActive = false;
     if (value.activeStroke == null) return;
     _notify(value.committedImage, null);
   }
@@ -401,7 +496,11 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _notify(next, null);
   }
 
-  Future<void> _addSprayPoints(Stroke current, Offset centre) async {
+  Future<void> _addSprayPoints(
+    Stroke current,
+    Offset centre,
+    Stroke? mirror,
+  ) async {
     final random = Random();
     final radius = current.size;
     final newPoints = List.generate(CanvasConstants.sprayDensity, (_) {
@@ -422,15 +521,36 @@ class CanvasController extends ValueNotifier<CanvasState> {
       points: [...current.points, ...newPoints],
     );
 
+    // The mirror stroke gets each primary point reflected through the fixed
+    // screen-space fold line — same _reflect used everywhere else — not an
+    // independently-random spray, so the two clouds stay symmetric rather
+    // than merely similar. Spray is never pixel-art (mutually exclusive tool
+    // sets in the hub), so no grid snap applies here.
+    final updatedMirror = mirror == null
+        ? null
+        : Stroke(
+            drawingTool: mirror.drawingTool,
+            color: mirror.color,
+            size: mirror.size,
+            points: [
+              ...mirror.points,
+              ...newPoints.map((p) => _reflect(p, false, 0)),
+            ],
+          );
+
     if (updated.points.length >= CanvasConstants.sprayFlushThreshold) {
       // Bake accumulated dots into the committed image and start a fresh
       // active stroke. The undo snapshot was already saved at pointer-down,
       // so this flush is invisible to the undo stack — the whole spray
-      // gesture stays a single undo step.
-      final flushed = await CanvasCompositor.commitStroke(
+      // gesture stays a single undo step. Both strokes flush in the same
+      // pass so they never fall out of lockstep with each other.
+      var flushed = await CanvasCompositor.commitStroke(
         value.committedImage,
         updated,
       );
+      if (updatedMirror != null) {
+        flushed = await CanvasCompositor.commitStroke(flushed, updatedMirror);
+      }
       _notify(
         flushed,
         Stroke(
@@ -439,11 +559,19 @@ class CanvasController extends ValueNotifier<CanvasState> {
           size: updated.size,
           points: [],
         ),
+        mirrorStroke: updatedMirror == null
+            ? null
+            : Stroke(
+                drawingTool: updatedMirror.drawingTool,
+                color: updatedMirror.color,
+                size: updatedMirror.size,
+                points: [],
+              ),
       );
       return;
     }
 
-    _notifyWithStroke(updated);
+    _notifyWithStroke(updated, mirrorStroke: updatedMirror);
   }
 
   void _pushUndo(ui.Image image) {
@@ -458,27 +586,31 @@ class CanvasController extends ValueNotifier<CanvasState> {
     _dirty = true;
   }
 
-  void _notify(ui.Image image, Stroke? stroke) {
+  void _notify(ui.Image image, Stroke? stroke, {Stroke? mirrorStroke}) {
     value = CanvasState(
       committedImage: image,
       activeStroke: stroke,
+      mirrorStroke: mirrorStroke,
       canUndo: _undoStack.isNotEmpty,
       canRedo: _redoStack.isNotEmpty,
       isDirty: _dirty,
       view: _view,
       grid: _grid,
+      mirrorGuideVisible: _mirrorGuideVisible,
     );
   }
 
-  void _notifyWithStroke(Stroke stroke) {
+  void _notifyWithStroke(Stroke stroke, {Stroke? mirrorStroke}) {
     value = CanvasState(
       committedImage: value.committedImage,
       activeStroke: stroke,
+      mirrorStroke: mirrorStroke,
       canUndo: value.canUndo,
       canRedo: value.canRedo,
       isDirty: _dirty,
       view: _view,
       grid: _grid,
+      mirrorGuideVisible: _mirrorGuideVisible,
     );
   }
 

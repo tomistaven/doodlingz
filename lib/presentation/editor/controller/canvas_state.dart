@@ -18,6 +18,8 @@ class CanvasState {
     required this.isDirty,
     this.view = ViewTransform.identity,
     this.grid = GridSettings.disabled,
+    this.mirrorStroke,
+    this.mirrorGuideVisible = false,
   });
 
   /// The last fully committed raster buffer. Displayed as the canvas background.
@@ -26,6 +28,10 @@ class CanvasState {
   /// The stroke currently being drawn, or null between gestures.
   /// Rendered as a cheap vector overlay on top of [committedImage].
   final Stroke? activeStroke;
+
+  /// The point-reflected copy of [activeStroke] when mirror mode is on, or
+  /// null otherwise. Always null when [activeStroke] is null.
+  final Stroke? mirrorStroke;
 
   final bool canUndo;
   final bool canRedo;
@@ -42,4 +48,11 @@ class CanvasState {
   /// Grid overlay visibility and cell size. Rendered by `DrawingCanvasPainter`
   /// in the same raster-space transform block as the stroke overlay.
   final GridSettings grid;
+
+  /// Whether the mirror axis guide line should render. Synced from
+  /// [EditorState.mirrorMode] the same way [grid]'s visibility is synced —
+  /// a standing render flag, distinct from [mirrorStroke] which only exists
+  /// during an active gesture and says nothing about whether mirror mode is
+  /// merely turned on with no stroke in progress.
+  final bool mirrorGuideVisible;
 }

@@ -72,6 +72,36 @@ class CanvasFit {
       (point.dy - destination.top) / scale,
     );
   }
+
+  /// Inverts [toRaster]: maps a raster-space point to display coordinates.
+  ///
+  /// Exact algebraic inverse — scale/translate undone first, then the
+  /// rotation undone by the opposite angle, mirroring [toRaster]'s own
+  /// rotate-then-translate order in reverse. Needed wherever a raster point
+  /// must be reasoned about in on-screen terms, such as reflecting a stroke
+  /// about a screen-fixed axis regardless of the current view rotation —
+  /// [toRaster] alone cannot do that, since it only goes the other way.
+  Offset toDisplay(Offset rasterPoint) {
+    var point = Offset(
+      rasterPoint.dx * scale + destination.left,
+      rasterPoint.dy * scale + destination.top,
+    );
+
+    if (rotation != 0.0) {
+      final centre = destination.center;
+      final relative = point - centre;
+      final cos = math.cos(rotation);
+      final sin = math.sin(rotation);
+      point =
+          Offset(
+            relative.dx * cos - relative.dy * sin,
+            relative.dx * sin + relative.dy * cos,
+          ) +
+          centre;
+    }
+
+    return point;
+  }
 }
 
 /// Fits [rasterSize] inside [displaySize] with a single uniform scale and

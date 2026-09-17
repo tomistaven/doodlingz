@@ -99,6 +99,7 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
       editorState.strokeSize,
       isPixelArt: editorState.pixelArtMode,
       pixelCellSize: editorState.gridCellSize,
+      mirror: editorState.mirrorMode,
     );
   }
 
@@ -230,46 +231,53 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
           _controller.setGridVisible(state.gridVisible);
           _controller.setGridCellSize(state.gridCellSize);
         },
-        child: BlocListener<SettingsCubit, SettingsState>(
+        child: BlocListener<EditorCubit, EditorState>(
           listenWhen: (previous, current) =>
-              current.pendingTutorial && !previous.pendingTutorial,
+              previous.mirrorMode != current.mirrorMode,
           listener: (context, state) {
-            setState(() {
-              _tutorialDismissedThisSession = false;
-              _tutorialRequestedThisSession = true;
-            });
-            context.read<SettingsCubit>().clearPendingTutorial();
+            _controller.setMirrorGuideVisible(state.mirrorMode);
           },
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Doodlingz'),
-              actions: [
-                ValueListenableBuilder<CanvasState>(
-                  valueListenable: _controller,
-                  builder: (_, state, _) => IconButton(
-                    icon: const Icon(Icons.undo),
-                    onPressed: state.canUndo ? _controller.undo : null,
+          child: BlocListener<SettingsCubit, SettingsState>(
+            listenWhen: (previous, current) =>
+                current.pendingTutorial && !previous.pendingTutorial,
+            listener: (context, state) {
+              setState(() {
+                _tutorialDismissedThisSession = false;
+                _tutorialRequestedThisSession = true;
+              });
+              context.read<SettingsCubit>().clearPendingTutorial();
+            },
+            child: Scaffold(
+              appBar: AppBar(
+                title: const Text('Doodlingz'),
+                actions: [
+                  ValueListenableBuilder<CanvasState>(
+                    valueListenable: _controller,
+                    builder: (_, state, _) => IconButton(
+                      icon: const Icon(Icons.undo),
+                      onPressed: state.canUndo ? _controller.undo : null,
+                    ),
                   ),
-                ),
-                ValueListenableBuilder<CanvasState>(
-                  valueListenable: _controller,
-                  builder: (_, state, _) => IconButton(
-                    icon: const Icon(Icons.redo),
-                    onPressed: state.canRedo ? _controller.redo : null,
+                  ValueListenableBuilder<CanvasState>(
+                    valueListenable: _controller,
+                    builder: (_, state, _) => IconButton(
+                      icon: const Icon(Icons.redo),
+                      onPressed: state.canRedo ? _controller.redo : null,
+                    ),
                   ),
-                ),
-                IconButton(icon: const Icon(Icons.save), onPressed: save),
-                IconButton(
-                  icon: const Icon(Icons.save_alt),
-                  onPressed: export,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () => _showEditorMenu(context),
-                ),
-              ],
+                  IconButton(icon: const Icon(Icons.save), onPressed: save),
+                  IconButton(
+                    icon: const Icon(Icons.save_alt),
+                    onPressed: export,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => _showEditorMenu(context),
+                  ),
+                ],
+              ),
+              body: _buildCanvas(),
             ),
-            body: _buildCanvas(),
           ),
         ),
       ),

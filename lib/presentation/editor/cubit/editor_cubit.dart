@@ -54,6 +54,14 @@ class EditorCubit extends Cubit<EditorState> {
     }
   }
 
+  /// Toggles mirror mode. A plain flag with no side effects on other
+  /// state — unlike [setPixelArtMode] it doesn't force a tool or the grid,
+  /// since fill (the one tool mirror excludes) already opts itself out at
+  /// the [CanvasController] level rather than needing a cubit-side rule.
+  void setMirrorMode(bool enabled) {
+    emit(state.copyWith(mirrorMode: enabled));
+  }
+
   /// Signals that a drawing should be loaded into the canvas.
   ///
   /// Sets [EditorState.pendingLoad] so [EditorScreen] can react via

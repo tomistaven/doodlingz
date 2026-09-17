@@ -16,6 +16,7 @@ class EditorState extends Equatable {
     this.gridVisible = false,
     this.gridCellSize = CanvasConstants.defaultGridCellSize,
     this.pixelArtMode = false,
+    this.mirrorMode = false,
   });
 
   final DrawingTool tool;
@@ -48,6 +49,12 @@ class EditorState extends Equatable {
   /// the moment it starts.
   final bool pixelArtMode;
 
+  /// Whether mirror mode is active. Same read-at-draw-time shape as
+  /// [pixelArtMode]: it only affects how a stroke is built at pointer-down,
+  /// so [EditorScreen] passes it straight to [CanvasController.onPointerDown]
+  /// rather than syncing it into the controller as standing state.
+  final bool mirrorMode;
+
   static EditorState initial() => EditorState(
     tool: DrawingTool.brush,
     color: CanvasConstants.defaultToolColor,
@@ -65,6 +72,7 @@ class EditorState extends Equatable {
     bool? gridVisible,
     double? gridCellSize,
     bool? pixelArtMode,
+    bool? mirrorMode,
   }) => EditorState(
     tool: tool ?? this.tool,
     color: color ?? this.color,
@@ -76,6 +84,7 @@ class EditorState extends Equatable {
     gridVisible: gridVisible ?? this.gridVisible,
     gridCellSize: gridCellSize ?? this.gridCellSize,
     pixelArtMode: pixelArtMode ?? this.pixelArtMode,
+    mirrorMode: mirrorMode ?? this.mirrorMode,
   );
 
   @override
@@ -88,5 +97,6 @@ class EditorState extends Equatable {
     gridVisible,
     gridCellSize,
     pixelArtMode,
+    mirrorMode,
   ];
 }
