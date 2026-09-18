@@ -106,6 +106,10 @@ class _EditorScreenState extends State<EditorScreen> with EditorActions {
   void _updateStylusCursor(PointerEvent event) {
     if (event.kind != PointerDeviceKind.stylus &&
         event.kind != PointerDeviceKind.invertedStylus) {
+      // If a different input device (like touch) is used, clear the stylus cursor
+      if (_stylusCursor.value != null) {
+        _stylusCursor.value = null;
+      }
       return;
     }
     _stylusCursor.value = event.localPosition;
